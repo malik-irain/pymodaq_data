@@ -21,16 +21,16 @@ import copy
 import pint
 from multipledispatch import dispatch
 
-from pymodaq_data.utils.enums import BaseEnum, enum_checker
-from pymodaq.utils.messenger import deprecation_msg
-from pymodaq.utils.daq_utils import find_objects_in_list_from_attr_name_val
-from pymodaq.utils.logger import set_logger, get_module_name
-from pymodaq.utils.slicing import SpecialSlicersData
-from pymodaq.utils import math_utils as mutils
-from pymodaq.utils.config import Config
-from pymodaq.utils.plotting.plotter.plotter import PlotterFactory
+from pymodaq_utils.enums import BaseEnum, enum_checker
+from pymodaq_utils.warnings import deprecation_msg
+from pymodaq_utils.utils import find_objects_in_list_from_attr_name_val
+from pymodaq_utils.logger import set_logger, get_module_name
+from pymodaq_data.slicing import SpecialSlicersData
+from pymodaq_utils import math_utils as mutils
+from pymodaq_utils.config import Config
+from pymodaq_data.plotting.plotter.plotter import PlotterFactory
 
-from pymodaq import Q_, ureg, Unit
+from pymodaq_data import Q_, ureg, Unit
 
 config = Config()
 plotter_factory = PlotterFactory()
