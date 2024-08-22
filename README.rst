@@ -78,7 +78,6 @@ or calculated from theory:
 
 
 .. figure:: https://pymodaq.cnrs.fr/en/latest/_images/data.png
-   :alt: What is data?
 
    What is PyMoDAQ's data?.
 
