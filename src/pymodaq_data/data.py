@@ -739,10 +739,6 @@ class DataBase(DataLowLevel):
                     raise DataUnitError(
                         f'Cannot sum Data objects not having the same dimension: {e}')
             return new_data
-        elif isinstance(other, numbers.Number) and self.length == 1 and self.size == 1:
-            new_data = copy.deepcopy(self)
-            new_data = new_data + DataActuator(data=other)
-            return new_data
         else:
             raise TypeError(f'Could not add a {other.__class__.__name__} or a {self.__class__.__name__} '
                             f'of a different length')

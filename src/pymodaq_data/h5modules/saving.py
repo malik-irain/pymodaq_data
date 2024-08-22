@@ -115,9 +115,7 @@ class H5SaverLowLevel(H5Backend):
                 new_file = True
 
         else:
-            self.h5_file_name = select_file(save=True, ext='h5')
-            self.h5_file_path = self.h5_file_name.parent
-            new_file = True
+            return
 
         self.close_file()
         self.open_file(self.h5_file_path.joinpath(self.h5_file_name), 'w' if new_file else 'a', title='PyMoDAQ file')
@@ -137,10 +135,10 @@ class H5SaverLowLevel(H5Backend):
                     self._raw_group.attrs[metadata_key] = metadata[metadata_key]
 
     def save_file(self, filename=None):
-        if filename is None:
-            filename = select_file(None, save=True, ext='h5')
-        if filename != '':
-            super().save_file_as(filename)
+        if isinstance(filename, str) or isinstance(filename, Path) and filename != '':
+            file_path = Path(filename)
+            if str(file_path) != '':
+                super().save_file_as(filename)
 
     def get_set_logger(self, where: Node = None) -> VLARRAY:
         """ Retrieve or create (if absent) a logger enlargeable array to store logs
