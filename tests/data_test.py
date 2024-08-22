@@ -12,7 +12,7 @@ import time
 
 from pymodaq_utils import math_utils as mutils
 from pymodaq_data import data as data_mod
-from pymodaq_data import DataDim
+from pymodaq_data.data import DataDim
 from pymodaq_data.post_treatment.process_to_scalar import DataProcessorFactory
 
 data_processors = DataProcessorFactory()
@@ -380,42 +380,6 @@ class TestDataBase:
         assert dwa_mm != dwa_um
         assert dwa_mm == dwa_um_equal
         assert dwa_mm != dwa_unrelated
-
-    @pytest.mark.parametrize('datatmp', (DATA0D, DATA1D, DATA2D))
-    def test_comparison_data_actuator(self, datatmp):
-        LENGTH = 3
-        data = init_data(datatmp, LENGTH)
-        data_eq = init_data(datatmp, LENGTH)
-        data_lt = init_data(datatmp - 0.01 * np.ones(datatmp.shape), LENGTH)
-        data_gt = init_data(datatmp + 0.01 * np.ones(datatmp.shape), LENGTH)
-
-        assert data == data_eq
-        assert data >= data_eq
-        assert data <= data_eq
-        assert data > data_lt
-        assert data < data_gt
-
-    def test_comparison_numbers(self):
-        LENGTH = 1
-        data = init_data(DATA0D, LENGTH)
-        data_eq = float(DATA0D[0])
-        data_lt = float(DATA0D[0]) - 0.01
-        data_gt = float(DATA0D[0]) + 0.01
-
-        assert data == data_eq
-        assert data >= data_eq
-        assert data <= data_eq
-        assert data > data_lt
-        assert data < data_gt
-
-        ARRAY = np.array([1, 2, 1.5])
-        data = data_mod.DataActuator(data=[ARRAY])
-        assert not data > 1
-        assert data > 0.999
-        assert data >= 1
-        assert data == data_mod.DataActuator(data=[ARRAY])
-        assert data < 2.001
-        assert data <= 2
 
     def test_maths(self):
         data = init_data(data=DATA2D, Ndata=2)
@@ -915,17 +879,6 @@ class TestDataWithAxesSpread:
             dwa.interp(new_axis_array)
 
 
-class TestDataFromPlugins:
-    def test_attributes(self):
-        dwa = data_mod.DataFromPlugins(name='blabla', data=[DATA1D])
-
-        assert hasattr(dwa, 'do_plot')
-        assert dwa.do_plot == True
-
-        assert hasattr(dwa, 'do_save')
-        assert dwa.do_save == True
-
-
 class TestSlicingUniform:
     def test_slice_navigation(self, init_data_uniform):
         data_raw = init_data_uniform
@@ -1035,11 +988,6 @@ class TestSlicingSpread:
 
 
 class TestDataSource:
-    def test_data_from_plugins(self):
-        Ndata = 2
-        data = data_mod.DataFromPlugins('myData', data=[DATA2D for ind in range(Ndata)])
-        assert isinstance(data, data_mod.DataWithAxes)
-        assert data.source == data_mod.DataSource['raw']
 
     def test_data_raw(self):
         Ndata = 2
@@ -1058,29 +1006,6 @@ class TestDataSource:
         data = data_mod.DataFromRoi('myData', data=[DATA2D for ind in range(Ndata)])
         assert isinstance(data, data_mod.DataWithAxes)
         assert data.source == data_mod.DataSource['calculated']
-
-
-class TestDataActuator:
-    def test_init(self):
-        Ndata = 2
-        data = data_mod.DataActuator('myact')
-        assert data.name == 'myact'
-        assert data.data[0] == pytest.approx(0.)
-
-        data = data_mod.DataActuator()
-        assert data.name == 'actuator'
-        assert data.dim == DataDim['Data0D']
-        assert data.length == 1
-        assert data.size == 1
-
-        assert data.shape == (1, )
-        assert data.data[0] == pytest.approx(0.)
-
-    @pytest.mark.parametrize("data_number", [23, 0.25, -0.7, 1j*12])
-    def test_quick_format(self, data_number):
-        d = data_mod.DataActuator(data=data_number)
-        assert d.name == 'actuator'
-        assert d.data[0] == np.array([data_number])
 
 
 class TestDataToExport:

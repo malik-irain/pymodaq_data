@@ -19,7 +19,7 @@ from pymodaq_utils.logger import set_logger, get_module_name
 
 from pymodaq_utils import utils
 from pymodaq_utils.config import Config
-from pymodaq_data import DataDim, DataToExport, Axis, DataWithAxes
+from pymodaq_data.data import DataDim, DataToExport, Axis, DataWithAxes
 from pymodaq_utils.enums import BaseEnum, enum_checker
 from pymodaq_utils.warnings import deprecation_msg
 
@@ -410,17 +410,4 @@ class H5SaverLowLevel(H5Backend):
         group = self.add_incremental_group('actuator', where, title, settings_as_xml, metadata)
         return group
 
-    def show_file_content(self):
-        win = QtWidgets.QMainWindow()
-        if not self.isopen():
-            if self.h5_file_path is not None:
-                if self.h5_file_path.exists():
-                    self.analysis_prog = browsing.H5Browser(win, h5file_path=self.h5_file_path)
-                else:
-                    logger.warning('The h5 file path has not been defined yet')
-            else:
-                logger.warning('The h5 file path has not been defined yet')
-        else:
-            self.flush()
-            self.analysis_prog = browsing.H5Browser(win, h5file=self.h5file)
-        win.show()
+

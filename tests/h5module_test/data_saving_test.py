@@ -13,7 +13,7 @@ from pymodaq_data.h5modules.data_saving import (
     DataLoader, AxisSaverLoader, DataSaverLoader, DataToExportSaver,
     DataEnlargeableSaver, DataToExportTimedSaver, SPECIAL_GROUP_NAMES, DataToExportExtendedSaver,
     DataToExportEnlargeableSaver, DataExtendedSaver, DataLoader, BkgSaver, squeeze)
-from pymodaq_data import Axis, DataWithAxes, DataSource, DataToExport, DataRaw, DataDim
+from pymodaq_data.data import Axis, DataWithAxes, DataSource, DataToExport, DataRaw, DataDim
 
 
 @pytest.fixture()

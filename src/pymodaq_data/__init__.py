@@ -5,8 +5,11 @@ from pint import UnitRegistry
 
 try:
     from pymodaq_utils.logger import set_logger
-    from pymodaq_utils.utils import get_version
-    __version__ = get_version('pymodaq_data')
+    from pymodaq_utils.utils import get_version, PackageNotFoundError
+    try:
+        __version__ = get_version('pymodaq_data')
+    except PackageNotFoundError:
+        __version__ = '0.0.0dev'
     try:
         logger = set_logger('pymodaq_data', add_handler=True, base_logger=True)
     except Exception:

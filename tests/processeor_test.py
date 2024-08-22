@@ -1,7 +1,7 @@
 import numpy as np
 
 from pymodaq_data.post_treatment.process_to_scalar import DataProcessorFactory
-from pymodaq_data import DataRaw, Axis
+from pymodaq_data.data import DataRaw, Axis
 
 from pymodaq_utils import math_utils as mutils
 
