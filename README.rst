@@ -1,50 +1,47 @@
-PyMoDAQ
-#######
+PyMoDAQ Data
+############
 
-.. image:: https://img.shields.io/pypi/v/pymodaq.svg
-   :target: https://pypi.org/project/pymodaq/
+.. image:: https://img.shields.io/pypi/v/pymodaq_data.svg
+   :target: https://pypi.org/project/pymodaq_data/
    :alt: Latest Version
 
 .. image:: https://readthedocs.org/projects/pymodaq/badge/?version=latest
    :target: https://pymodaq.readthedocs.io/en/stable/?badge=latest
    :alt: Documentation Status
 
-.. image:: https://codecov.io/gh/PyMoDAQ/PyMoDAQ/branch/pymodaq-dev/graph/badge.svg?token=IQNJRCQDM2
-    :target: https://codecov.io/gh/PyMoDAQ/PyMoDAQ
+.. image:: https://codecov.io/gh/PyMoDAQ/pymodaq_data/branch/0.0.x/graph/badge.svg?token=IQNJRCQDM2
+    :target: https://codecov.io/gh/PyMoDAQ/pymodaq_data
 
-====== ========== ======= ======
-Python Qt Backend OS      Passed
-====== ========== ======= ======
-3.8    Qt5        Linux   |38Qt5|
-3.9    Qt5        Linux   |39Qt5|
-3.10   Qt5        Linux   |310Qt5|
-3.11   Qt5        Linux   |311Qt5|
-3.8    Qt5        Windows |38Qt5win|
-3.8    PySide2    Linux   |38pyside|
-3.9    Qt6        Linux   |39Qt6|
-====== ========== ======= ======
+====== ======= ======
+Python OS      Passed
+====== ======= ======
+3.8    Linux   |38|
+3.9    Linux   |39|
+3.10   Linux   |310|
+3.11   Linux   |311|
+3.12   Linux   |312|
+3.11   Windows |311win|
+====== ======= ======
 
 
-.. |38Qt5| image:: https://github.com/PyMoDAQ/PyMoDAQ/actions/workflows/Testp38pyqt5.yml/badge.svg?branch=pymodaq-dev
-    :target: https://github.com/PyMoDAQ/PyMoDAQ/actions/workflows/Testp38pyqt5.yml
+.. |38| image:: https://github.com/PyMoDAQ/pymodaq_data/actions/workflows/Testp38.yml/badge.svg?branch=0.0.x_dev
+    :target: https://github.com/PyMoDAQ/pymodaq_data/actions/workflows/Testp385.yml
 
-.. |39Qt5| image:: https://github.com/PyMoDAQ/PyMoDAQ/actions/workflows/Testp39pyqt5.yml/badge.svg?branch=pymodaq-dev
-    :target: https://github.com/PyMoDAQ/PyMoDAQ/actions/workflows/Testp39pyqt5.yml
+.. |39| image:: https://github.com/PyMoDAQ/pymodaq_data/actions/workflows/Testp39.yml/badge.svg?branch=0.0.x_dev
+    :target: https://github.com/PyMoDAQ/pymodaq_data/actions/workflows/Testp39.yml
 
-.. |310Qt5| image:: https://github.com/PyMoDAQ/PyMoDAQ/actions/workflows/Testp310pyqt5.yml/badge.svg?branch=pymodaq-dev
-    :target: https://github.com/PyMoDAQ/PyMoDAQ/actions/workflows/Testp310pyqt5.yml
+.. |310| image:: https://github.com/PyMoDAQ/pymodaq_data/actions/workflows/Testp310.yml/badge.svg?branch=0.0.x_dev
+    :target: https://github.com/PyMoDAQ/pymodaq_data/actions/workflows/Testp310.yml
 
-.. |311Qt5| image:: https://github.com/PyMoDAQ/PyMoDAQ/actions/workflows/Testp311pyqt5.yml/badge.svg?branch=pymodaq-dev
-    :target: https://github.com/PyMoDAQ/PyMoDAQ/actions/workflows/Testp311pyqt5.yml
+.. |311| image:: https://github.com/PyMoDAQ/pymodaq_data/actions/workflows/Testp311.yml/badge.svg?branch=0.0.x_dev
+    :target: https://github.com/PyMoDAQ/pymodaq_data/actions/workflows/Testp311.yml
 
-.. |38Qt5win| image:: https://github.com/PyMoDAQ/PyMoDAQ/actions/workflows/Testp38pyqt5_win.yml/badge.svg?branch=pymodaq-dev
-    :target: https://github.com/PyMoDAQ/PyMoDAQ/actions/workflows/Testp38pyqt5_win.yml
+.. |312| image:: https://github.com/PyMoDAQ/pymodaq_data/actions/workflows/Testp312.yml/badge.svg?branch=0.0.x_dev
+    :target: https://github.com/PyMoDAQ/pymodaq_data/actions/workflows/Testp312.yml
 
-.. |38pyside| image:: https://github.com/PyMoDAQ/PyMoDAQ/actions/workflows/Testp38pyside2.yml/badge.svg?branch=pymodaq-dev
-    :target: https://github.com/PyMoDAQ/PyMoDAQ/actions/workflows/Testp38pyside2.yml
+.. |311win| image:: https://github.com/PyMoDAQ/pymodaq_data/actions/workflows/Testp311_win.yml/badge.svg?branch=0.0.x_dev
+    :target: https://github.com/PyMoDAQ/pymodaq_data/actions/workflows/Testp311_win.yml
 
-.. |39Qt6| image:: https://github.com/PyMoDAQ/PyMoDAQ/actions/workflows/Testp39pyqt6.yml/badge.svg?branch=pymodaq-dev
-    :target: https://github.com/PyMoDAQ/PyMoDAQ/actions/workflows/Testp39pyqt6.yml
 
 
 
@@ -52,42 +49,52 @@ Python Qt Backend OS      Passed
    :alt: shortcut
 
 
-PyMoDAQ, Modular Data Acquisition with Python, is a set of **python** modules used to interface any kind of experiments.
-It simplifies the interaction with detector and actuator hardware to go straight to the data acquisition of interest.
+PyMoDAQ__, Modular Data Acquisition with Python, is a set of **python** modules used to interface any kind of
+experiments. It simplifies the interaction with detector and actuator hardware to go straight to the data acquisition
+of interest.
 
-It has two purposes:
+__ https://pymodaq.readthedocs.io/en/stable/?badge=latest
 
-* First, to provide a complete interface to perform automated measurements or logging data without having to write a user/interface for each
-  new experiment, this is under the *Dashboard_module* environment and its extensions.
-* Second, to provide various tools (modules) to easily build *custom apps*
+`PyMoDAQ data`__ is a set of utilities (constants, methods and classes) that are used
+for Data Management. It is heavily used with the PyMoDAQ framework but can also be used as a standalone
+package for data management in another context.
 
-It is organised a shown below:
+__ https://pymodaq.cnrs.fr/en/latest/developer_folder/data_management.html
 
-.. figure:: http://pymodaq.cnrs.fr/en/latest/_images/pymodaq_diagram.png
-   :alt: overview
+What are Data?
+--------------
 
-   PyMoDAQ's Dashboard and its extensions: DAQ_Scan for automated acquisitions, DAQ_Logger for data logging and many other.
+Data are objects with many characteristics able to properly describe real data taken on an experiment
+or calculated from theory:
 
-The main component is the **Dashboard** : This is a graphical component that will initialize actuators and detectors given
-the need of your particular experiment. You configure the dashboard using an interface for quick launch of various
-configurations (numbers and types of control modules).
 
-The detectors and the actuators are represented and manipulated using two control modules:
+*  a type: float, int, ...
+*  a dimensionality: Data0D, Data1D, Data2D and higher
+*  units (dealt with the pint python package)
+*  axes
+*  actual data as numpy arrays
+*  uncertainty/error bars
+* ...
 
-* **DAQ_Move_module** : used to control/drive an actuator (stand alone and/or automated).
-  Any number of these modules can be instantiated in the Dashboard
-* **DAQ_Viewer_module** : used to control/drive a detector (stand alone and/or automated).
 
-Any number of these modules can be instantiated in the Dashboard.
+.. figure:: https://pymodaq.cnrs.fr/en/latest/_images/data.png
+   :alt: What is data?
 
-The Dashboard allows you to start dedicated extensions that will make use of the control modules:
+   What is PyMoDAQ's data?.
 
-* **DAQ_Logger_module** : This module lets you log data from one or many detectors defined in the dashboard. You can log data
-  in a binary hierarchical hdf5 file or towards a sql database
-* **DAQ_Scan_module** : This module lets you configure automated data acquisition from one or many detectors defined
-  in the dashboard as a function or one or more actuators defined also in the dashboard.
+The `PyMoDAQ Data` package
+--------------------------
 
-and many others to simplify any application development.
+Because of this variety, `PyMoDAQ Data` introduce a set of objects including metadata (for instance the time of
+acquisition) and various methods and properties to manipulate
+them during analysis for instance (getting name, slicing, concatenating...),
+save them and plot them (given you installed one of the available backend: *matplotlib* or *Qt* (
+through the `pymodaq_gui` package)
+
+To learn more, check the documentation__.
+
+__ https://pymodaq.cnrs.fr/en/latest/developer_folder/data_management.html
+
 
 Published under the MIT FREE SOFTWARE LICENSE
 
