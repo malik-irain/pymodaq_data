@@ -6,6 +6,7 @@ Created the 28/10/2022
 """
 import logging
 import numpy as np
+from pint.errors import DimensionalityError
 import pytest
 from pytest import approx, mark
 import time
@@ -28,9 +29,11 @@ DATA0D = np.array([2.7])
 DATA1D = np.arange(0, 10)
 DATA2D = np.arange(0, 5*6).reshape((5, 6))
 DATAND = np.arange(0, 5 * 6 * 3).reshape((5, 6, 3))
+REAL_UNITS = 'm'
 Nn0 = 10
 Nn1 = 5
 
+DWA_RAW = data_mod.DataRaw('raw', units = 's', data=[DATA1D, DATA1D])
 
 def init_axis(data=None, index=0) -> data_mod.Axis:
     if data is None:
@@ -38,7 +41,7 @@ def init_axis(data=None, index=0) -> data_mod.Axis:
     return data_mod.Axis(label=LABEL, units=UNITS, data=data, index=index)
 
 
-def init_data(data=None, Ndata=1, axes=[], name='myData', source=data_mod.DataSource['raw'],
+def init_data(data=None, Ndata=1, axes=[], name='myData', source=data_mod.DataSource.raw,
               labels=None, units='') -> data_mod.DataWithAxes:
     if data is None:
         data = DATA2D
@@ -379,7 +382,10 @@ class TestDataBase:
 
         assert dwa_mm != dwa_um
         assert dwa_mm == dwa_um_equal
-        assert dwa_mm != dwa_unrelated
+        with pytest.raises(DimensionalityError):
+            assert dwa_mm != dwa_unrelated
+        with pytest.raises(DimensionalityError):
+            assert dwa_mm == dwa_unrelated
 
     def test_maths(self):
         data = init_data(data=DATA2D, Ndata=2)
@@ -1325,3 +1331,46 @@ class TestUnits:
         assert np.allclose(dwa_s[0], array)
 
 
+class TestNumpyUfunc:
+
+    units = 'm'
+
+    @pytest.mark.parametrize(
+        ('elt1', 'elt2'), (
+                [np.random.rand(),
+                 init_data(DATA1D, Ndata=2, name='raw', source=data_mod.DataSource.raw,
+                           units=REAL_UNITS)
+                 ],
+                [init_data(DATA1D, Ndata=2, name='raw', source=data_mod.DataSource.raw,
+                           units=REAL_UNITS),
+                 data_mod.Q_(np.random.rand(), REAL_UNITS),
+                 ],
+                [init_data(DATA1D, Ndata=2, name='raw', source=data_mod.DataSource.raw,
+                           units=REAL_UNITS),
+                 data_mod.Q_(np.random.rand(len(DATA1D)), REAL_UNITS),
+                 ],
+                [init_data(DATA1D, Ndata=2, name='raw', source=data_mod.DataSource.raw,
+                      units=REAL_UNITS),
+                 init_data(DATA1D * 10, Ndata=2, name='raw', source=data_mod.DataSource.raw,
+                           units=REAL_UNITS)
+                 ],
+        ))
+    def test_add(self, elt1, elt2):
+        dwa_add = np.add(elt1, elt2)
+        for ind, data_array in enumerate(dwa_add.data):
+            if isinstance(elt1, data_mod.DataBase):
+                elt1bis = elt1.data[ind]
+            elif isinstance(elt1, data_mod.Q_):
+                elt1bis = elt1.m_as(REAL_UNITS)
+            else:
+                elt1bis = elt1
+            if isinstance(elt2, data_mod.DataBase):
+                elt2bis = elt2.data[ind]
+            elif isinstance(elt2, data_mod.Q_):
+                elt2bis = elt2.m_as(REAL_UNITS)
+            else:
+                elt2bis = elt2
+            assert np.allclose(data_array, np.add(elt1bis, elt2bis))
+
+    def test_add_operator(self):
+        dwa_add = DWA_RAW + DWA_RAW
