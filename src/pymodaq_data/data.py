@@ -732,24 +732,29 @@ class DataBase(DataLowLevel, NDArrayOperatorsMixin):
             elts = []
             for input in inputs:
                 if isinstance(input, numbers.Number):
-                    elts.append([Q_(input, self.units) for _ in range(self.length)])
-                elif isinstance(input, Q_):
                     elts.append([input for _ in range(self.length)])
-                elif isinstance(input, self.__class__):
-                    elts.append([Q_(data_array, input.units) for data_array in input.data])
+                elif isinstance(input, Q_):  #take its magnitude
+                    elts.append([input for _ in range(self.length)])
+                elif isinstance(input, np.ndarray):
                     if input.size != self.size:
                         raise TypeError("inconsistent sizes")
+                    elts.append([input for _ in range(self.length)])
+                elif isinstance(input, self.__class__):
+                        elts.append([Q_(array, input.units) for array in input.data])
                 else:
                     return NotImplemented
             dwa = self.deepcopy()
             dwa.name = f'{self.name}_{ufunc.__name__}'
-            ufunc_result = [ufunc(*zipped, **kwargs) for zipped in list(zip(*elts))]
-            if isinstance(ufunc_result[0], Q_):
-                ufunc_result = [uq.m_as(self.units) for uq in ufunc_result]
-            elif isinstance(ufunc_result[0], np.ndarray):
-                if ufunc_result[0].dtype == bool:
-                    return np.any(ufunc_result)
-            dwa.data = ufunc_result
+            units = dwa.units
+            ufunc_results = [ufunc(*zipped, **kwargs) for zipped in list(zip(*elts))]
+            if isinstance(ufunc_results[0], Q_):
+                units = str(ufunc_results[0].units)
+                ufunc_results = [ufunc_result.magnitude for ufunc_result in ufunc_results]
+            elif isinstance(ufunc_results[0], np.ndarray):
+                if ufunc_results[0].dtype == bool:
+                    return np.any(ufunc_results)
+            dwa.data = ufunc_results
+            dwa.force_units(units)
             return dwa
         else:
             return NotImplemented
@@ -808,7 +813,7 @@ class DataBase(DataLowLevel, NDArrayOperatorsMixin):
 
     def _comparison_common(self, other, operator='__eq__'):
         if isinstance(other, DataBase):
-            if not (self.name == other.name and
+            if not (#self.name == other.name and  # who cares if the name is not the same?
                     len(self) == len(other) and
                     Unit(self.units).is_compatible_with(other.units)):
                 return False
@@ -819,7 +824,10 @@ class DataBase(DataLowLevel, NDArrayOperatorsMixin):
                 if self[ind].shape != other[ind].shape:
                     eq = False
                     break
-                eq = eq and np.all(getattr(self.quantities[ind], operator)(other.quantities[ind]))
+                if operator == '__eq__':
+                    eq = eq and np.allclose(self.quantities[ind], other.quantities[ind])
+                else:
+                    eq = eq and np.all(getattr(self.quantities[ind], operator)(other.quantities[ind]))
             # extra attributes are not relevant as they may contain module specific data...
             # eq = eq and (self.extra_attributes == other.extra_attributes)
             # for attribute in self.extra_attributes:
@@ -830,20 +838,23 @@ class DataBase(DataLowLevel, NDArrayOperatorsMixin):
         else:
             raise TypeError()
 
-    # def __eq__(self, other):
-    #     return self._comparison_common(other, '__eq__')
-    #
-    # def __le__(self, other):
-    #     return self._comparison_common(other, '__le__')
-    #
-    # def __lt__(self, other):
-    #     return self._comparison_common(other, '__lt__')
-    #
-    # def __ge__(self, other):
-    #     return self._comparison_common(other, '__ge__')
-    #
-    # def __gt__(self, other):
-    #     return self._comparison_common(other, '__gt__')
+    def __eq__(self, other):
+        return self._comparison_common(other, '__eq__')
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __le__(self, other):
+        return self._comparison_common(other, '__le__')
+
+    def __lt__(self, other):
+        return self._comparison_common(other, '__lt__')
+
+    def __ge__(self, other):
+        return self._comparison_common(other, '__ge__')
+
+    def __gt__(self, other):
+        return self._comparison_common(other, '__gt__')
 
     def deepcopy(self):
         return copy.deepcopy(self)
