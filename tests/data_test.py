@@ -34,7 +34,7 @@ REAL_UNITS = 'm'
 Nn0 = 10
 Nn1 = 5
 
-DWA_RAW = data_mod.DataRaw('raw', units = 's', data=[DATA1D, DATA1D])
+DWA_RAW = data_mod.DataRaw('raw', units='s', data=[DATA1D, DATA1D])
 
 def init_axis(data=None, index=0) -> data_mod.Axis:
     if data is None:
