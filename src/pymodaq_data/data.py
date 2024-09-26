@@ -673,6 +673,10 @@ class DataBase(DataLowLevel, NDArrayOperatorsMixin):
             new_data._units = units
             return new_data
 
+    def force_units(self, units: str):
+        """ Change immediately the units to whatever else. Use this with care!"""
+        self._units = units
+
     def as_dte(self, name: str = 'mydte') -> DataToExport:
         """Convenience method to wrap the DataWithAxes object into a DataToExport"""
         return DataToExport(name, data=[self])
