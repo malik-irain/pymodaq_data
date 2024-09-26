@@ -727,6 +727,7 @@ class DataBase(DataLowLevel):
             raise IndexError(f'The index should be an positive integer lower than the data length')
 
     def __add__(self, other: object):
+        """ Implements the add operation between Data objects or between a data object and a number"""
         if isinstance(other, DataBase) and len(other) == len(self):
             new_data = copy.deepcopy(self)
             for ind_array in range(len(new_data)):
@@ -739,25 +740,26 @@ class DataBase(DataLowLevel):
                     raise DataUnitError(
                         f'Cannot sum Data objects not having the same dimension: {e}')
             return new_data
+        elif isinstance(other, numbers.Number):
+            new_data = copy.deepcopy(self)
+            for ind_array in range(len(new_data)):
+                new_data[ind_array] = self[ind_array] + other
+            return new_data
+
         else:
-            raise TypeError(f'Could not add a {other.__class__.__name__} or a {self.__class__.__name__} '
-                            f'of a different length')
+            raise NotImplementedError(
+                f'Could not add a {other.__class__.__name__} or a {self.__class__.__name__} '
+                f'of a different length')
+
+    def __radd__(self, other):
+        return self + other
 
     def __sub__(self, other: object):
         return self.__add__(other * -1)
-        #
-        # if isinstance(other, DataBase) and len(other) == len(self):
-        #     new_data = copy.deepcopy(self)
-        #     for ind_array in range(len(new_data)):
-        #         new_data[ind_array] = self[ind_array] - other[ind_array]
-        #     return new_data
-        # elif isinstance(other, numbers.Number) and self.length == 1 and self.size == 1:
-        #     new_data = copy.deepcopy(self)
-        #     new_data = new_data - DataActuator(data=other)
-        #     return new_data
-        # else:
-        #     raise TypeError(f'Could not substract a {other.__class__.__name__} or a {self.__class__.__name__} '
-        #                     f'of a different length')
+
+
+    def __rsub__(self, other):
+        return self * (-1) + other
 
     def __mul__(self, other):
         if (isinstance(other, numbers.Number) or

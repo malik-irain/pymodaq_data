@@ -43,7 +43,7 @@ try:
     logger.info(f"Done")
     logger.info('************************')
 
-    from pymodaq_data.data import (DataRaw, DataFromPlugins, DataWithAxes, DataToExport, Axis,
+    from pymodaq_data.data import (DataRaw, DataWithAxes, DataToExport, Axis,
                                    DataCalculated, DataDim, DataDistribution, DataSource, DataBase)
 
 except Exception as e:
