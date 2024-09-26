@@ -763,58 +763,6 @@ class DataBase(DataLowLevel, NDArrayOperatorsMixin):
         else:
             return NotImplemented
 
-    # def __add__(self, other: object):
-    #     if isinstance(other, DataBase) and len(other) == len(self):
-    #         new_data = copy.deepcopy(self)
-    #         for ind_array in range(len(new_data)):
-    #             if self[ind_array].shape != other[ind_array].shape:
-    #                 raise ValueError('The shapes of arrays stored into the data are not consistent')
-    #             try:
-    #                 new_data[ind_array] = (Q_(self[ind_array], self.units) +
-    #                                        Q_(other[ind_array], other.units)).m_as(self.units)
-    #             except pint.errors.DimensionalityError as e:
-    #                 raise DataUnitError(
-    #                     f'Cannot sum Data objects not having the same dimension: {e}')
-    #         return new_data
-    #     elif isinstance(other, numbers.Number) and self.length == 1 and self.size == 1:
-    #         new_data = copy.deepcopy(self)
-    #         new_data = new_data + DataActuator(data=other)
-    #         return new_data
-    #     else:
-    #         raise TypeError(f'Could not add a {other.__class__.__name__} or a {self.__class__.__name__} '
-    #                         f'of a different length')
-
-    # def __sub__(self, other: object):
-    #     return self.__add__(other * -1)
-    #
-    # def __mul__(self, other):
-    #     if (isinstance(other, numbers.Number) or
-    #             (isinstance(other, np.ndarray) and other.shape == self._shape)):
-    #         new_data = copy.deepcopy(self)
-    #         for ind_array in range(len(new_data)):
-    #             new_data[ind_array] = self[ind_array] * other
-    #         return new_data
-    #     elif isinstance(other, DataBase) and other.shape == self._shape:
-    #         new_data = copy.deepcopy(self)
-    #         new_unit = str((Q_(self[0], self.units) *
-    #                        Q_(other[0], other.units)).to_base_units().units)
-    #         for ind_array in range(len(new_data)):
-    #             new_data[ind_array] = \
-    #                 ((Q_(self[ind_array], self.units) * Q_(other[ind_array], other.units))
-    #                  .to_base_units()).magnitude
-    #         new_data._units = new_unit
-    #         return new_data
-    #     else:
-    #         raise TypeError(f'Could not multiply a {other.__class__.__name__} and a {self.__class__.__name__} '
-    #                         f'of a different length')
-    #
-    # def __truediv__(self, other):
-    #     if isinstance(other, numbers.Number):
-    #         return self * (1 / other)
-    #     else:
-    #         raise TypeError(f'Could not divide a {other.__class__.__name__} and a {self.__class__.__name__} '
-    #                         f'of a different length')
-
     def _comparison_common(self, other, operator='__eq__'):
         if isinstance(other, DataBase):
             if not (#self.name == other.name and  # who cares if the name is not the same?

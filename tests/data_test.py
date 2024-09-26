@@ -1385,5 +1385,28 @@ class TestNumpyUfunc:
                     elt2bis = elt2
                 assert np.allclose(data_array, np.add(elt1bis, elt2bis))
 
-    def test_add_operator(self):
-        dwa_add = DWA_RAW + DWA_RAW
+    @pytest.mark.parametrize('operator', (np.add, np.subtract))
+    def test_add_subtract_operator(self, operator):
+        dwa_s = data_mod.DataRaw('raw', units='s', data=[DATA1D, DATA1D])
+        dwa_ms = data_mod.DataRaw('raw', units='ms', data=[DATA1D, DATA1D])
+        dwa_m = data_mod.DataRaw('raw', units='m', data=[DATA1D, DATA1D])
+
+        dwa_s_ms = operator(dwa_s, dwa_ms)
+
+        assert dwa_s_ms.units == 's'
+        assert np.allclose(dwa_s_ms.data[0], operator(DATA1D, DATA1D / 1000))
+
+        with pytest.raises(pint.errors.DimensionalityError):
+            dwa_s + dwa_m
+
+    def test_mult_operator(self):
+        dwa_s = data_mod.DataRaw('raw', units='s', data=[DATA1D, DATA1D])
+        dwa_ms = data_mod.DataRaw('raw', units='ms', data=[DATA1D, DATA1D])
+        dwa_m = data_mod.DataRaw('raw', units='m', data=[DATA1D, DATA1D])
+
+        dwa_s_ms = np.multiply(dwa_s, dwa_ms)
+
+        assert np.allclose(dwa_s_ms.data[0], DATA1D * DATA1D)
+
+        dwa_s_ms.units = 's*s'
+        assert np.allclose(dwa_s_ms.data[0], DATA1D * DATA1D / 1000)
