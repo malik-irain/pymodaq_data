@@ -20,6 +20,7 @@ import warnings
 from time import time
 import copy
 import pint
+
 from multipledispatch import dispatch
 
 from pymodaq_utils.enums import BaseEnum, enum_checker
@@ -30,7 +31,7 @@ from pymodaq_data.slicing import SpecialSlicersData
 from pymodaq_utils import math_utils as mutils
 from pymodaq_utils.config import Config
 from pymodaq_data.plotting.plotter.plotter import PlotterFactory
-
+from pymodaq_data.numpy_func import HANDLED_FUNCTIONS, HANDLED_UFUNCS, process_arguments_for_ufuncs
 from pymodaq_data import Q_, ureg, Unit
 
 config = Config()
@@ -732,36 +733,35 @@ class DataBase(DataLowLevel, NDArrayOperatorsMixin):
             raise IndexError(f'The index should be an positive integer lower than the data length')
 
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
+        ufunc_name = ufunc.__name__
+        if ufunc_name not in HANDLED_UFUNCS:
+            raise NotImplementedError
+        else:
+            ufunc = HANDLED_UFUNCS[ufunc_name]
         if method == '__call__':
-            elts = []
-            for input in inputs:
-                if isinstance(input, numbers.Number):
-                    elts.append([input for _ in range(self.length)])
-                elif isinstance(input, Q_):  #take its magnitude
-                    elts.append([input for _ in range(self.length)])
-                elif isinstance(input, np.ndarray):
-                    if input.size != self.size:
-                        raise TypeError("inconsistent sizes")
-                    elts.append([input for _ in range(self.length)])
-                elif isinstance(input, self.__class__):
-                        elts.append([Q_(array, input.units) for array in input.data])
-                else:
-                    return NotImplemented
+            elts = process_arguments_for_ufuncs(self, inputs)
             dwa = self.deepcopy()
-            dwa.name = f'{self.name}_{ufunc.__name__}'
+            dwa.name = f'{self.name}_{ufunc_name}'
             units = dwa.units
             ufunc_results = [ufunc(*zipped, **kwargs) for zipped in list(zip(*elts))]
             if isinstance(ufunc_results[0], Q_):
                 units = str(ufunc_results[0].units)
                 ufunc_results = [ufunc_result.magnitude for ufunc_result in ufunc_results]
-            elif isinstance(ufunc_results[0], np.ndarray):
-                if ufunc_results[0].dtype == bool:
-                    return np.any(ufunc_results)
             dwa.data = ufunc_results
             dwa.force_units(units)
             return dwa
         else:
             return NotImplemented
+
+    def __array_function__(self, func, types, args, kwargs):
+        func_name = func.__name__
+        if func_name not in HANDLED_FUNCTIONS:
+            return NotImplemented
+        else:
+            func = HANDLED_FUNCTIONS[func_name]
+        if not all(issubclass(t, self.__class__) for t in types):
+            return NotImplemented
+        return func(*args, **kwargs)
 
     def _comparison_common(self, other, operator='__eq__'):
         if isinstance(other, DataBase):
@@ -831,27 +831,19 @@ class DataBase(DataLowLevel, NDArrayOperatorsMixin):
 
     def abs(self):
         """ Take the absolute value of itself"""
-        new_data = copy.copy(self)
-        new_data.data = [np.abs(dat) for dat in new_data]
-        return new_data
+        return np.abs(self)
 
     def angle(self):
         """ Take the phase value of itself"""
-        new_data = copy.copy(self)
-        new_data.data = [np.angle(dat) for dat in new_data]
-        return new_data
+        return np.angle(self)
 
     def real(self):
         """ Take the real part of itself"""
-        new_data = copy.copy(self)
-        new_data.data = [np.real(dat) for dat in new_data]
-        return new_data
+        return np.real(self)
 
     def imag(self):
         """ Take the imaginary part of itself"""
-        new_data = copy.copy(self)
-        new_data.data = [np.imag(dat) for dat in new_data]
-        return new_data
+        return np.imag(self)
 
     def flipud(self):
         """Reverse the order of elements along axis 0 (up/down)"""
@@ -1073,11 +1065,7 @@ class DataBase(DataLowLevel, NDArrayOperatorsMixin):
 
         new in 4.3.0
         """
-        new_data = copy.deepcopy(self)
-        for ind_array in range(len(new_data)):
-            new_data[ind_array] = 10 * np.log10(self[ind_array] / self[ind_array].max())
-        new_data._units = 'dB'
-        return new_data
+        return 10 * np.log10(self / np.max(self))
 
 
 class AxesManagerBase:
@@ -2256,14 +2244,14 @@ class DataWithAxes(DataBase):
 
         data = DataWithAxes(self.name, data=new_arrays_data, nav_indexes=tuple(nav_indexes),
                             axes=axes,
-                            source='calculated', origin=self.origin,
+                            source=DataSource.calculated, origin=self.origin,
                             labels=self.labels[:],
                             distribution=distribution)
         return data
 
     def deepcopy_with_new_data(self, data: List[np.ndarray] = None,
                                remove_axes_index: Union[int, List[int]] = None,
-                               source: DataSource = 'calculated',
+                               source: DataSource = DataSource.calculated,
                                keep_dim=False) -> DataWithAxes:
         """deepcopy without copying the initial data (saving memory)
 

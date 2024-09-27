@@ -29,6 +29,14 @@ DATA = OFFSET + SCALING * np.linspace(0, SIZE-1, SIZE)
 DATA0D = np.array([2.7])
 DATA1D = np.arange(0, 10)
 DATA2D = np.arange(0, 5*6).reshape((5, 6))
+XAXIS_GAUSSIAN = np.linspace(0, 128, endpoint=False)
+X0 = 100
+DX = 20
+YAXIS_GAUSSIAN = np.linspace(0, 128, endpoint=False)
+Y0 = 79
+DY = 12
+GAUSSIAN_2D = mutils.gauss2D(YAXIS_GAUSSIAN, Y0, DY,
+                             XAXIS_GAUSSIAN, X0, DX)
 DATAND = np.arange(0, 5 * 6 * 3).reshape((5, 6, 3))
 REAL_UNITS = 'm'
 Nn0 = 10
@@ -36,10 +44,10 @@ Nn1 = 5
 
 DWA_RAW = data_mod.DataRaw('raw', units='s', data=[DATA1D, DATA1D])
 
-def init_axis(data=None, index=0) -> data_mod.Axis:
+def init_axis(data=None, index=0, label=LABEL) -> data_mod.Axis:
     if data is None:
         data = DATA
-    return data_mod.Axis(label=LABEL, units=UNITS, data=data, index=index)
+    return data_mod.Axis(label=label, units=UNITS, data=data, index=index)
 
 
 def init_data(data=None, Ndata=1, axes=[], name='myData', source=data_mod.DataSource.raw,
@@ -1410,3 +1418,65 @@ class TestNumpyUfunc:
 
         dwa_s_ms.units = 's*s'
         assert np.allclose(dwa_s_ms.data[0], DATA1D * DATA1D / 1000)
+
+
+class TestFuncNumpy:
+    def test_all(self):
+        dwa_bool = data_mod.DataRaw('raw', units='', data=[DATA1D == DATA1D])
+        assert np.all(dwa_bool)
+
+    def test_func_remove_axis(self):
+
+        dwa = data_mod.DataRaw('raw', units='', data=[GAUSSIAN_2D],
+                               axes=[init_axis(YAXIS_GAUSSIAN, 0, label='Yaxis'),
+                                     init_axis(XAXIS_GAUSSIAN, 1, label='Xaxis')])
+
+        dwa_std = np.std(dwa, axis=0)
+        dwa_mean = np.mean(dwa, axis=0)
+
+        dwa_max = np.max(dwa)
+        assert dwa_max.dim == data_mod.DataDim.Data0D
+        assert np.allclose(dwa_max[0], np.max(GAUSSIAN_2D))
+        assert len(dwa_max.axes) == 0
+
+        dwa_min = np.min(dwa)
+        assert dwa_min.dim == data_mod.DataDim.Data0D
+        assert np.allclose(dwa_min[0], np.min(GAUSSIAN_2D))
+
+        dwa_min = np.min(dwa, axis=1)
+        assert dwa_min.dim == data_mod.DataDim.Data1D
+        assert np.allclose(dwa_min[0], np.min(GAUSSIAN_2D, axis=1))
+
+        dwa_min = np.min(dwa, axis=0)
+        assert dwa_min.dim == data_mod.DataDim.Data1D
+        assert np.allclose(dwa_min[0], np.min(GAUSSIAN_2D, axis=0))
+
+        dwa_min = np.min(dwa, axis=-1)
+        assert dwa_min.dim == data_mod.DataDim.Data1D
+        assert np.allclose(dwa_min[0], np.min(GAUSSIAN_2D, axis=-1))
+
+        dwa_min = np.min(dwa, axis=(0, 1))
+        assert dwa_min.dim == data_mod.DataDim.Data0D
+        assert np.allclose(dwa_min[0], np.min(GAUSSIAN_2D, axis=(0, 1)))
+
+    def test_func_on_complex(self):
+        ANGLE = np.pi / 3
+        dwa = data_mod.DataRaw('raw', units='', data=[np.exp(1j * ANGLE * np.ones((10,)))])
+
+        dwa_angle_rad = np.angle(dwa)
+        assert np.allclose(dwa_angle_rad.data[0], ANGLE)
+
+        dwa_angle_deg = np.angle(dwa, deg=True)
+        assert np.allclose(dwa_angle_deg[0], np.rad2deg(ANGLE))
+
+        assert np.allclose(np.real(dwa)[0], np.cos(ANGLE))
+        assert np.allclose(np.imag(dwa)[0], np.sin(ANGLE))
+        assert np.allclose(np.abs(dwa)[0], 1)
+        assert np.allclose(np.absolute(dwa)[0], 1)
+
+    def test_db(self):
+        dwa = data_mod.DataRaw('raw', units='s', data=[GAUSSIAN_2D],)
+
+        dwa_db = dwa.to_dB()
+        assert dwa_db.units == ''
+
