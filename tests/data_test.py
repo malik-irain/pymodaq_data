@@ -1459,6 +1459,28 @@ class TestFuncNumpy:
         assert dwa_min.dim == data_mod.DataDim.Data0D
         assert np.allclose(dwa_min[0], np.min(GAUSSIAN_2D, axis=(0, 1)))
 
+    def test_booleans(self):
+        dwa_bool = data_mod.DataRaw('raw', units='', data=[
+            np.array([[True, False], [True, True]])],)
+
+        dwa_all = np.all(dwa_bool)
+        assert not dwa_all[0]
+        assert dwa_all.dim == data_mod.DataDim.Data0D
+
+        dwa_all = np.all(dwa_bool, axis=0)
+        assert dwa_all[0][0] == True
+        assert dwa_all[0][1] == False
+        assert dwa_all.dim == data_mod.DataDim.Data1D
+
+        dwa_all = np.all(dwa_bool, axis=1)
+        assert dwa_all[0][0] == False
+        assert dwa_all[0][1] == True
+        assert dwa_all.dim == data_mod.DataDim.Data1D
+
+        dwa_any = np.any(dwa_bool, axis=0)
+        assert np.any(dwa_any[0])
+        assert dwa_any.dim == data_mod.DataDim.Data1D
+
     def test_func_on_complex(self):
         ANGLE = np.pi / 3
         dwa = data_mod.DataRaw('raw', units='', data=[np.exp(1j * ANGLE * np.ones((10,)))])

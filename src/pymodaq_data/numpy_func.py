@@ -129,3 +129,14 @@ def _absolute(dwa: 'DataWithAxes', *args, **kwargs):
 @implements('abs')
 def _abs(dwa: 'DataWithAxes', *args, **kwargs):
     return np.absolute(dwa, *args, **kwargs)
+
+
+# ******** functions that return booleans ***********
+@implements('all')
+def _all(dwa: 'DataWithAxes', *args, axis: Optional[Union[int, Iterable[int]]] = None, **kwargs):
+    return process_with_reduced_dimensions(np.all, dwa, *args, axis=axis, **kwargs)
+
+
+@implements('any')
+def _all(dwa: 'DataWithAxes', *args, axis: Optional[Union[int, Iterable[int]]] = None, **kwargs):
+    return process_with_reduced_dimensions(np.any, dwa, *args, axis=axis, **kwargs)
