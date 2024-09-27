@@ -140,3 +140,18 @@ def _all(dwa: 'DataWithAxes', *args, axis: Optional[Union[int, Iterable[int]]] =
 @implements('any')
 def _all(dwa: 'DataWithAxes', *args, axis: Optional[Union[int, Iterable[int]]] = None, **kwargs):
     return process_with_reduced_dimensions(np.any, dwa, *args, axis=axis, **kwargs)
+
+
+@implements('allclose')
+def _allclose(dwa_a: 'DataWithAxes', dwa_b: 'DataWithAxes', *args,
+              **kwargs):
+    if dwa_a.size != dwa_b.size or dwa_a.length != dwa_b.length or dwa_a.shape != dwa_b.shape:
+        raise ValueError("The two DataWithAxes objects doesn't have arrays of same shape, "
+                         "size or length")
+    dwa = data_mod.DataCalculated(
+        f'allclose_{dwa_a.name}_{dwa_b.name}',
+        data=[np.atleast_1d(np.allclose(Q_(dwa_a[ind], dwa_a.units),
+                                        Q_(dwa_b[ind], dwa_b.units),
+                                        *args, **kwargs)) for ind in range(len(dwa_a))])
+
+    return dwa

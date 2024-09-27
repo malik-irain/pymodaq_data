@@ -790,6 +790,9 @@ class DataBase(DataLowLevel, NDArrayOperatorsMixin):
         else:
             raise TypeError()
 
+    def __bool__(self):
+        return all([np.all(array) for array in self])
+
     def __eq__(self, other):
         return self._comparison_common(other, '__eq__')
 

@@ -676,7 +676,7 @@ class TestDataWithAxesUniform:
         assert dwa_processed.abs().data[0][0] == pytest.approx(omega0, 0.1)
 
         dwa_ift = dwa_fft.ift(0)
-        assert np.allclose(dwa[0], dwa_ift.real())
+        assert np.allclose(dwa, dwa_ift.real())
 
         assert data_mod.Unit(dwa_ift.axes[0].units) == data_mod.Unit(dwa.axes[0].units)
 
@@ -1501,4 +1501,13 @@ class TestFuncNumpy:
 
         dwa_db = dwa.to_dB()
         assert dwa_db.units == ''
+
+    def test_all_close(self):
+        dwa_a = data_mod.DataRaw('raw', units='', data=[DATA1D, DATA1D])
+        dwa_b = data_mod.DataRaw('raw', units='', data=[DATA1D, DATA1D])
+
+        assert np.allclose(dwa_a, dwa_b)
+
+        assert not np.allclose(dwa_a, dwa_b * 0.1)
+
 
