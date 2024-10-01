@@ -76,7 +76,7 @@ def _max(dwa: 'DataWithAxes', *args, axis: Optional[Union[int, Iterable[int]]] =
 
 
 @implements('min')
-def _max(dwa: 'DataWithAxes', *args, axis: Optional[Union[int, Iterable[int]]] = None, **kwargs):
+def _min(dwa: 'DataWithAxes', *args, axis: Optional[Union[int, Iterable[int]]] = None, **kwargs):
     return process_with_reduced_dimensions(np.min, dwa, *args, axis=axis, **kwargs)
 
 
@@ -139,7 +139,7 @@ def _all(dwa: 'DataWithAxes', *args, axis: Optional[Union[int, Iterable[int]]] =
 
 
 @implements('any')
-def _all(dwa: 'DataWithAxes', *args, axis: Optional[Union[int, Iterable[int]]] = None, **kwargs):
+def _any(dwa: 'DataWithAxes', *args, axis: Optional[Union[int, Iterable[int]]] = None, **kwargs):
     return process_with_reduced_dimensions(np.any, dwa, *args, axis=axis, **kwargs)
 
 
