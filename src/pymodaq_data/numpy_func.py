@@ -35,10 +35,11 @@ def process_arguments_for_ufuncs(input: 'DataBase',
             if elt.size != input.size:
                 raise TypeError("inconsistent sizes")
             elts.append([elt for _ in range(input.length)])
-        elif isinstance(elt, input.__class__):
-            elts.append([Q_(array, elt.units) for array in elt.data])
         else:
-            return NotImplemented
+            try:
+                elts.append([Q_(array, elt.units) for array in elt.data])
+            except:
+                return NotImplementedError
     return elts
 
 
