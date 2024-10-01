@@ -56,3 +56,6 @@ source = "vcs"
 include = [
     "/src",
 ]
+
+[tool.hatch.build.hooks.vcs]
+version-file = "_version.py"

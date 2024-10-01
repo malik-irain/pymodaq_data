@@ -6,6 +6,8 @@ Created the 28/10/2022
 """
 import logging
 import numpy as np
+import pint.errors
+from pint.errors import DimensionalityError
 import pytest
 from pytest import approx, mark
 import time
@@ -27,18 +29,28 @@ DATA = OFFSET + SCALING * np.linspace(0, SIZE-1, SIZE)
 DATA0D = np.array([2.7])
 DATA1D = np.arange(0, 10)
 DATA2D = np.arange(0, 5*6).reshape((5, 6))
+XAXIS_GAUSSIAN = np.linspace(0, 128, endpoint=False)
+X0 = 100
+DX = 20
+YAXIS_GAUSSIAN = np.linspace(0, 128, endpoint=False)
+Y0 = 79
+DY = 12
+GAUSSIAN_2D = mutils.gauss2D(YAXIS_GAUSSIAN, Y0, DY,
+                             XAXIS_GAUSSIAN, X0, DX)
 DATAND = np.arange(0, 5 * 6 * 3).reshape((5, 6, 3))
+REAL_UNITS = 'm'
 Nn0 = 10
 Nn1 = 5
 
+DWA_RAW = data_mod.DataRaw('raw', units='s', data=[DATA1D, DATA1D])
 
-def init_axis(data=None, index=0) -> data_mod.Axis:
+def init_axis(data=None, index=0, label=LABEL) -> data_mod.Axis:
     if data is None:
         data = DATA
-    return data_mod.Axis(label=LABEL, units=UNITS, data=data, index=index)
+    return data_mod.Axis(label=label, units=UNITS, data=data, index=index)
 
 
-def init_data(data=None, Ndata=1, axes=[], name='myData', source=data_mod.DataSource['raw'],
+def init_data(data=None, Ndata=1, axes=[], name='myData', source=data_mod.DataSource.raw,
               labels=None, units='') -> data_mod.DataWithAxes:
     if data is None:
         data = DATA2D
@@ -423,7 +435,7 @@ class TestDataBase:
             assert np.allclose(data_mod.Q_(data_data[ind], data_data.units),
                                data_mod.Q_(data[ind], data.units) *
                                data_mod.Q_(data1[ind], data1.units))
-        assert data_data.units == 'm * s'
+        assert data_mod.Unit(data_data.units).is_compatible_with('m * s')
 
     def test_abs(self):
         data_p = init_data(data=DATA2D, Ndata=2)
@@ -664,7 +676,7 @@ class TestDataWithAxesUniform:
         assert dwa_processed.abs().data[0][0] == pytest.approx(omega0, 0.1)
 
         dwa_ift = dwa_fft.ift(0)
-        assert np.allclose(dwa[0], dwa_ift.real())
+        assert np.allclose(dwa, dwa_ift.real())
 
         assert data_mod.Unit(dwa_ift.axes[0].units) == data_mod.Unit(dwa.axes[0].units)
 
@@ -1323,5 +1335,179 @@ class TestUnits:
         assert np.allclose(dwa_ms[0], array * 1000)
         assert dwa_s.units == 's'
         assert np.allclose(dwa_s[0], array)
+
+
+class TestNumpyUfunc:
+
+    units = 'm'
+
+    @pytest.mark.parametrize(
+        ('elt1', 'elt2', 'unit_error'), (
+                [np.random.rand(),
+                 init_data(DATA1D, Ndata=2, name='raw', source=data_mod.DataSource.raw,
+                           units=REAL_UNITS),
+                 True
+                 ],
+                [np.random.rand(),
+                 init_data(DATA1D, Ndata=2, name='raw', source=data_mod.DataSource.raw,
+                           units=''),
+                 False
+                 ],
+                [init_data(DATA1D, Ndata=2, name='raw', source=data_mod.DataSource.raw,
+                           units=REAL_UNITS),
+                 data_mod.Q_(np.random.rand(), REAL_UNITS),
+                 False
+                 ],
+                [init_data(DATA1D, Ndata=2, name='raw', source=data_mod.DataSource.raw,
+                           units=REAL_UNITS),
+                 data_mod.Q_(np.random.rand(len(DATA1D)), REAL_UNITS),
+                 False
+                 ],
+                [init_data(DATA1D, Ndata=2, name='raw', source=data_mod.DataSource.raw,
+                      units=REAL_UNITS),
+                 init_data(DATA1D * 10, Ndata=2, name='raw', source=data_mod.DataSource.raw,
+                           units=REAL_UNITS),
+                 False
+                 ],
+        ))
+    def test_add(self, elt1, elt2, unit_error):
+        if unit_error:
+            with pytest.raises(pint.errors.DimensionalityError):
+                dwa_add = np.add(elt1, elt2)
+                return
+        else:
+            dwa_add = np.add(elt1, elt2)
+
+            for ind, data_array in enumerate(dwa_add.data):
+                if isinstance(elt1, data_mod.DataBase):
+                    elt1bis = elt1.data[ind]
+                elif isinstance(elt1, data_mod.Q_):
+                    elt1bis = elt1.m_as(REAL_UNITS)
+                else:
+                    elt1bis = elt1
+                if isinstance(elt2, data_mod.DataBase):
+                    elt2bis = elt2.data[ind]
+                elif isinstance(elt2, data_mod.Q_):
+                    elt2bis = elt2.m_as(REAL_UNITS)
+                else:
+                    elt2bis = elt2
+                assert np.allclose(data_array, np.add(elt1bis, elt2bis))
+
+    @pytest.mark.parametrize('operator', (np.add, np.subtract))
+    def test_add_subtract_operator(self, operator):
+        dwa_s = data_mod.DataRaw('raw', units='s', data=[DATA1D, DATA1D])
+        dwa_ms = data_mod.DataRaw('raw', units='ms', data=[DATA1D, DATA1D])
+        dwa_m = data_mod.DataRaw('raw', units='m', data=[DATA1D, DATA1D])
+
+        dwa_s_ms = operator(dwa_s, dwa_ms)
+
+        assert dwa_s_ms.units == 's'
+        assert np.allclose(dwa_s_ms.data[0], operator(DATA1D, DATA1D / 1000))
+
+        with pytest.raises(pint.errors.DimensionalityError):
+            dwa_s + dwa_m
+
+    def test_mult_operator(self):
+        dwa_s = data_mod.DataRaw('raw', units='s', data=[DATA1D, DATA1D])
+        dwa_ms = data_mod.DataRaw('raw', units='ms', data=[DATA1D, DATA1D])
+        dwa_m = data_mod.DataRaw('raw', units='m', data=[DATA1D, DATA1D])
+
+        dwa_s_ms = np.multiply(dwa_s, dwa_ms)
+
+        assert np.allclose(dwa_s_ms.data[0], DATA1D * DATA1D)
+
+        dwa_s_ms.units = 's*s'
+        assert np.allclose(dwa_s_ms.data[0], DATA1D * DATA1D / 1000)
+
+
+class TestFuncNumpy:
+    def test_all(self):
+        dwa_bool = data_mod.DataRaw('raw', units='', data=[DATA1D == DATA1D])
+        assert np.all(dwa_bool)
+
+    def test_func_remove_axis(self):
+
+        dwa = data_mod.DataRaw('raw', units='', data=[GAUSSIAN_2D],
+                               axes=[init_axis(YAXIS_GAUSSIAN, 0, label='Yaxis'),
+                                     init_axis(XAXIS_GAUSSIAN, 1, label='Xaxis')])
+
+        dwa_std = np.std(dwa, axis=0)
+        dwa_mean = np.mean(dwa, axis=0)
+
+        dwa_max = np.max(dwa)
+        assert dwa_max.dim == data_mod.DataDim.Data0D
+        assert np.allclose(dwa_max[0], np.max(GAUSSIAN_2D))
+        assert len(dwa_max.axes) == 0
+
+        dwa_min = np.min(dwa)
+        assert dwa_min.dim == data_mod.DataDim.Data0D
+        assert np.allclose(dwa_min[0], np.min(GAUSSIAN_2D))
+
+        dwa_min = np.min(dwa, axis=1)
+        assert dwa_min.dim == data_mod.DataDim.Data1D
+        assert np.allclose(dwa_min[0], np.min(GAUSSIAN_2D, axis=1))
+
+        dwa_min = np.min(dwa, axis=0)
+        assert dwa_min.dim == data_mod.DataDim.Data1D
+        assert np.allclose(dwa_min[0], np.min(GAUSSIAN_2D, axis=0))
+
+        dwa_min = np.min(dwa, axis=-1)
+        assert dwa_min.dim == data_mod.DataDim.Data1D
+        assert np.allclose(dwa_min[0], np.min(GAUSSIAN_2D, axis=-1))
+
+        dwa_min = np.min(dwa, axis=(0, 1))
+        assert dwa_min.dim == data_mod.DataDim.Data0D
+        assert np.allclose(dwa_min[0], np.min(GAUSSIAN_2D, axis=(0, 1)))
+
+    def test_booleans(self):
+        dwa_bool = data_mod.DataRaw('raw', units='', data=[
+            np.array([[True, False], [True, True]])],)
+
+        dwa_all = np.all(dwa_bool)
+        assert not dwa_all[0]
+        assert dwa_all.dim == data_mod.DataDim.Data0D
+
+        dwa_all = np.all(dwa_bool, axis=0)
+        assert dwa_all[0][0] == True
+        assert dwa_all[0][1] == False
+        assert dwa_all.dim == data_mod.DataDim.Data1D
+
+        dwa_all = np.all(dwa_bool, axis=1)
+        assert dwa_all[0][0] == False
+        assert dwa_all[0][1] == True
+        assert dwa_all.dim == data_mod.DataDim.Data1D
+
+        dwa_any = np.any(dwa_bool, axis=0)
+        assert np.any(dwa_any[0])
+        assert dwa_any.dim == data_mod.DataDim.Data1D
+
+    def test_func_on_complex(self):
+        ANGLE = np.pi / 3
+        dwa = data_mod.DataRaw('raw', units='', data=[np.exp(1j * ANGLE * np.ones((10,)))])
+
+        dwa_angle_rad = np.angle(dwa)
+        assert np.allclose(dwa_angle_rad.data[0], ANGLE)
+
+        dwa_angle_deg = np.angle(dwa, deg=True)
+        assert np.allclose(dwa_angle_deg[0], np.rad2deg(ANGLE))
+
+        assert np.allclose(np.real(dwa)[0], np.cos(ANGLE))
+        assert np.allclose(np.imag(dwa)[0], np.sin(ANGLE))
+        assert np.allclose(np.abs(dwa)[0], 1)
+        assert np.allclose(np.absolute(dwa)[0], 1)
+
+    def test_db(self):
+        dwa = data_mod.DataRaw('raw', units='s', data=[GAUSSIAN_2D],)
+
+        dwa_db = dwa.to_dB()
+        assert dwa_db.units == ''
+
+    def test_all_close(self):
+        dwa_a = data_mod.DataRaw('raw', units='', data=[DATA1D, DATA1D])
+        dwa_b = data_mod.DataRaw('raw', units='', data=[DATA1D, DATA1D])
+
+        assert np.allclose(dwa_a, dwa_b)
+
+        assert not np.allclose(dwa_a, dwa_b * 0.1)
 
 
