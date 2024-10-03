@@ -1184,10 +1184,18 @@ class TestDataToExport:
         assert data.get_data_from_full_names(['toexport/data2D', 'toexport/data1D'])[1] == dat2
 
     def test_index(self, ini_data_to_export):
-        dat1, dat2, data = ini_data_to_export
-        assert data.index(dat1) == 0
-        assert data.index(dat1) == data.data.index(dat1)
-        assert data.index(dat2) == data.data.index(dat2)
+        dat1, dat2, dte = ini_data_to_export
+        dat3 = init_data(data=DATA2D, Ndata=2, name='data2D3')
+        dat4 = init_data(data=0.1*dat1.data[0], Ndata=2, name=dat1.name)
+        dat3.origin = 'anorigin'
+        dte.append(dat3)
+        dat4.origin = 'anotherorigin'
+        dte.append(dat4)
+        assert dte.index(dat1) == 0
+        assert dte.index(dat1) == dte.data.index(dat1)
+        assert dte.index(dat2) == dte.data.index(dat2)
+        assert dte.index(dat3) != 0  # same data but not the same name
+        assert dte.index(dat4) != 0  # same name but not the same data
 
     def test_index_from_name_origin(self, ini_data_to_export):
         dat1, dat2, data = ini_data_to_export

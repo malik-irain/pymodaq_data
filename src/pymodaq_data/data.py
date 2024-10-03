@@ -2764,10 +2764,10 @@ class DataToExport(DataLowLevel):
         But the __eq__ method is not checking the name while it is the main issue for elt finding
         Hence here I'm doing both checks
         """
-        for ind, dwa in enumerate(self):
+        for ind, dwa in enumerate(self.data):
             if dwa.name == data.name and dwa == data:
                 return ind
-        return ValueError
+        raise ValueError
 
     def index_from_name_origin(self, name: str, origin: str = '') -> List[DataWithAxes]:
         """Get the index of a given DataWithAxes within the list of data"""
@@ -2831,7 +2831,8 @@ class DataToExport(DataLowLevel):
     def append(self, dwa: DataWithAxes):
         """Append/replace DataWithAxes object to the data attribute
 
-        Make sure only one DataWithAxes object with a given name is in the list except if they don't have the same
+        Make sure only one DataWithAxes object with a given name is in the list except if they don't
+        have the same
         origin identifier
         """
         dwa = dwa.deepcopy()
