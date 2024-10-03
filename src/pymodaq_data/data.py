@@ -765,7 +765,7 @@ class DataBase(DataLowLevel, NDArrayOperatorsMixin):
 
     def _comparison_common(self, other, operator='__eq__'):
         if isinstance(other, DataBase):
-            if not (#self.name == other.name and  # who cares if the name is not the same?
+            if not (# no more checking for name equality
                     len(self) == len(other) and
                     Unit(self.units).is_compatible_with(other.units)):
                 return False
@@ -2759,7 +2759,15 @@ class DataToExport(DataLowLevel):
         return data
 
     def index(self, data: DataWithAxes):
-        return self.data.index(data)
+        """ Here use a comparison to assert data is equal to one element in the list
+
+        But the __eq__ method is not checking the name while it is the main issue for elt finding
+        Hence here I'm doing both checks
+        """
+        for ind, dwa in enumerate(self):
+            if dwa.name == data.name and dwa == data:
+                return ind
+        return ValueError
 
     def index_from_name_origin(self, name: str, origin: str = '') -> List[DataWithAxes]:
         """Get the index of a given DataWithAxes within the list of data"""
