@@ -12,9 +12,9 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Set up Python ${{ inputs.python }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.0
       - name: Install dependencies
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5.2.0
         with:
           python-version: ${{ inputs.python }}
       - name: Install package
@@ -30,6 +30,6 @@ jobs:
       - name: Run tests
         run: pytest --cov -n auto
       - name: Upload results to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v4.6.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
