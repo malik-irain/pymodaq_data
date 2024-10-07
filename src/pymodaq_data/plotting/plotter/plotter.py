@@ -18,7 +18,7 @@ from pymodaq_utils.factory import ObjectFactory
 logger = set_logger(get_module_name(__file__))
 
 
-def register_plotter(parent_module_name: str = 'pymodaq.utils.plotting.plotter'):
+def register_plotter(parent_module_name: str = 'pymodaq_data.plotting.plotter'):
     plotters = []
     try:
         plotter_module = import_module(f'{parent_module_name}.plotters')

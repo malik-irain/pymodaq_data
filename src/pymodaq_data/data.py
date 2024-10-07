@@ -585,7 +585,7 @@ class DataBase(DataLowLevel, NDArrayOperatorsMixin):
     >>> import numpy as np
     >>> from pymodaq.utils.data import DataBase, DataSource, DataDim, DataDistribution
     >>> data = DataBase('mydata', source=DataSource['raw'], dim=DataDim['Data1D'], \
-    distribution=DataDistribution['uniform'], data=[np.array([1.,2.,3.]), np.array([4.,5.,6.])],\
+    distribution=DataDistribution.uniform, data=[np.array([1.,2.,3.]), np.array([4.,5.,6.])],\
     labels=['channel1', 'channel2'], origin='docutils code')
     >>> data.dim
     <DataDim.Data1D: 1>
@@ -603,7 +603,7 @@ class DataBase(DataLowLevel, NDArrayOperatorsMixin):
 
     def __init__(self, name: str,
                  source: DataSource = None, dim: DataDim = None,
-                 distribution: DataDistribution = DataDistribution['uniform'],
+                 distribution: DataDistribution = DataDistribution.uniform,
                  data: List[np.ndarray] = None,
                  labels: List[str] = None, origin: str = '',
                  units: str = '',
@@ -1656,6 +1656,8 @@ class DataWithAxes(DataBase):
         super().__init__(*args, **kwargs)
 
         self._axes = axes
+        if not self.check_axes_linear():
+            self._distribution = DataDistribution.spread
 
         other_kwargs = dict(x_axis=x_axis, y_axis=y_axis, nav_x_axis=nav_x_axis, nav_y_axis=nav_y_axis)
 
@@ -1667,6 +1669,19 @@ class DataWithAxes(DataBase):
         self.get_dim_from_data_axes()  # in DataBase, dim is processed from the shape of data, but if axes are provided
         #then use get_dim_from axes
         self._check_errors(errors)
+
+    def check_axes_linear(self, axes: List[Axis] = None) -> bool:
+        """ Check if any axis may be non linear
+
+        Should trigger a spread like distribution except id dim is Data1D, in which cas, it doesn't
+        matter
+        """
+        if axes is None:
+            axes = self._axes
+        are_axes_linear = True
+        for axis in axes:
+            are_axes_linear = are_axes_linear and axis.is_axis_linear()
+        return are_axes_linear
 
     def _check_errors(self, errors: Iterable[np.ndarray]):
         """ Make sure the errors object is adapted to the len/shape of the dwa object
@@ -1734,12 +1749,12 @@ class DataWithAxes(DataBase):
         return plotter_factory.get(plotter_backend).plot(self, *args, viewer=viewer, **kwargs)
 
     def set_axes_manager(self, data_shape, axes, nav_indexes, **kwargs):
-        if self.distribution.name == 'uniform' or len(nav_indexes) == 0:
-            self._distribution = DataDistribution['uniform']
+        if self.distribution.name == DataDistribution.uniform.name or len(nav_indexes) == 0:
+            self._distribution = DataDistribution.uniform
             self.axes_manager = AxesManagerUniform(data_shape=data_shape, axes=axes,
                                                    nav_indexes=nav_indexes,
                                                    **kwargs)
-        elif self.distribution.name == 'spread':
+        elif self.distribution.name == DataDistribution.spread.name:
             self.axes_manager = AxesManagerSpread(data_shape=data_shape, axes=axes,
                                                   nav_indexes=nav_indexes,
                                                   **kwargs)
@@ -2050,6 +2065,7 @@ class DataWithAxes(DataBase):
             self._dim = DataDim['DataND']
         return self._dim
 
+
     @property
     def n_axes(self):
         """Get the number of axes (even if not specified)"""
@@ -2064,6 +2080,7 @@ class DataWithAxes(DataBase):
     def axes(self, axes: List[Axis]):
         """convenience property to set attribute from axis_manager"""
         self.set_axes_manager(self.shape, axes=axes, nav_indexes=self.nav_indexes)
+        self._axes = axes
 
     def axes_limits(self, axes_indexes: List[int] = None) -> List[Tuple[float, float]]:
         """Get the limits of specified axes (all if axes_indexes is None)"""
@@ -2243,7 +2260,7 @@ class DataWithAxes(DataBase):
         if len(nav_indexes) != 0:
             distribution = self.distribution
         else:
-            distribution = DataDistribution['uniform']
+            distribution = DataDistribution.uniform
 
         data = DataWithAxes(self.name, data=new_arrays_data, nav_indexes=tuple(nav_indexes),
                             axes=axes,
