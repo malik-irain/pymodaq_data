@@ -1001,7 +1001,7 @@ class DataLoader:
 
         if isinstance(h5saver, Path) or isinstance(h5saver, str):
             h5saver_tmp = H5SaverLowLevel()
-            h5saver_tmp.init_file(addhoc_file_path=Path(h5saver))
+            h5saver_tmp.init_file(file_name=Path(h5saver))
             h5saver = h5saver_tmp
 
         self.h5saver = h5saver

@@ -89,7 +89,8 @@ class H5SaverLowLevel(H5Backend):
     def h5_file(self):
         return self._h5file
 
-    def init_file(self, file_name: Path, raw_group_name='RawData', new_file=False, metadata: dict = None):
+    def init_file(self, file_name: Path, raw_group_name='RawData', new_file=False,
+                  metadata: dict = None):
         """Initializes a new h5 file.
 
         Parameters
@@ -100,6 +101,8 @@ class H5SaverLowLevel(H5Backend):
             Base node name
         new_file: bool
             If True create a new file, otherwise append to a potential existing one
+        metadata: dict
+            A dictionary to be saved as attributes
 
         Returns
         -------
