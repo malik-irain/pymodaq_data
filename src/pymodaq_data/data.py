@@ -1656,8 +1656,6 @@ class DataWithAxes(DataBase):
         super().__init__(*args, **kwargs)
 
         self._axes = axes
-        if not self.check_axes_linear():
-            self._distribution = DataDistribution.spread
 
         other_kwargs = dict(x_axis=x_axis, y_axis=y_axis, nav_x_axis=nav_x_axis, nav_y_axis=nav_y_axis)
 
