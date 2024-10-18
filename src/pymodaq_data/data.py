@@ -216,7 +216,8 @@ class Axis:
         return copy.copy(self)
 
     def as_dwa(self) -> DataWithAxes:
-        dwa = DataRaw(self.label, data=[self.get_data()],
+        dwa = DataRaw(self.label, units=self.units,
+                      data=[self.get_data()],
                       labels=[f'{self.label}_{self.units}'])
         dwa.create_missing_axes()
         return dwa
@@ -260,7 +261,7 @@ class Axis:
         return self._data
 
     @data.setter
-    def data(self, data: np.ndarray):
+    def data(self, data: Union[np.ndarray, Q_]):
         if data is not None:
             self._check_data_valid(data)
             self.get_scale_offset_from_data(data)
@@ -272,6 +273,10 @@ class Axis:
     def get_data(self) -> np.ndarray:
         """Convenience method to obtain the axis data (usually None because scaling and offset are used)"""
         return self._data if self._data is not None else self._linear_data(self.size)
+
+    def get_quantity(self) -> Q_:
+        """ Convenience method to obtain the numerical data as a quantity array"""
+        return Q_(self.get_data(), self.units)
 
     def get_data_at(self, indexes: Union[int, IterableType, slice]) -> np.ndarray:
         """ Get data at specified indexes
@@ -346,8 +351,10 @@ class Axis:
         elif index < 0:
             raise ValueError('index for the Axis class should be a positive integer')
 
-    @staticmethod
-    def _check_data_valid(data):
+    def _check_data_valid(self, data: Union[np.ndarray, Q_]):
+        if isinstance(data, Q_):
+            self.units = str(data.units)
+            data = data.magnitude
         if not isinstance(data, np.ndarray):
             raise TypeError(f'data for the Axis class should be a 1D numpy array')
         elif len(data.shape) != 1:
@@ -533,8 +540,9 @@ class DataBase(DataLowLevel, NDArrayOperatorsMixin):
     distribution: DataDistribution or str
         The distribution type of the data: uniform if distributed on a regular grid or spread if on
         specific unordered points
-    data: list of ndarray
-        The data the object is storing
+    data: list of ndarray or Quantities
+        The data the object is storing. In case of Quantities, the object units attribute will
+        be forced to the unit of this quantity, ignoring the units argument.
     labels: list of str
         The labels of the data nd-arrays
     origin: str
@@ -1002,15 +1010,17 @@ class DataBase(DataLowLevel, NDArrayOperatorsMixin):
         """Get the data by its index in the list, same as self[index]"""
         return self.data[index]
 
-    @staticmethod
-    def _check_data_type(data: List[np.ndarray]) -> List[np.ndarray]:
+    def _check_data_type(self, data: List[Union[np.ndarray, Q_]]) -> List[np.ndarray]:
         """make sure data is a list of nd-arrays"""
         is_valid = True
         if data is None:
             is_valid = False
         if not isinstance(data, list):
             # try to transform the data to regular type
-            if isinstance(data, np.ndarray):
+            if isinstance(data, Q_):
+                self.force_units(str(data.units))
+                data = [data.magnitude]
+            elif isinstance(data, np.ndarray):
                 warnings.warn(DataTypeWarning(f'Your data should be a list of numpy arrays not just a single numpy'
                                               f' array, wrapping them with a list'))
                 data = [data]
@@ -1023,12 +1033,16 @@ class DataBase(DataLowLevel, NDArrayOperatorsMixin):
         if isinstance(data, list):
             if len(data) == 0:
                 is_valid = False
-            elif not isinstance(data[0], np.ndarray):
+            elif not (isinstance(data[0], np.ndarray) or
+                             isinstance(data[0], Q_)):
                 is_valid = False
             elif len(data[0].shape) == 0:
                 is_valid = False
         if not is_valid:
             raise TypeError(f'Data should be an non-empty list of non-empty numpy arrays')
+        if isinstance(data[0], Q_):
+            self.force_units(str(data[0].units))
+            data = [array.magnitude for array in data]
         return data
 
     def check_shape_from_data(self, data: List[np.ndarray]):
@@ -1093,7 +1107,7 @@ class DataBase(DataLowLevel, NDArrayOperatorsMixin):
         return self._data
 
     @data.setter
-    def data(self, data: List[np.ndarray]):
+    def data(self, data: List[Union[np.ndarray, Q_]]):
         data = self._check_data_type(data)
         self._check_shape_dim_consistency(data)
         self._check_same_shape(data)
@@ -1905,7 +1919,7 @@ class DataWithAxes(DataBase):
         """
         dat_sum = []
         for dat in self.data:
-            dat_sum.append(np.sum(dat, axis=axis))
+            dat_sum.append(np.atleast_1d(np.sum(dat, axis=axis)))
         return self.deepcopy_with_new_data(dat_sum, remove_axes_index=axis)
 
     def interp(self,  new_axis_data: Union[Axis, np.ndarray], **kwargs) -> DataWithAxes:
