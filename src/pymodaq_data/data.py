@@ -20,6 +20,7 @@ import warnings
 from time import time
 import copy
 import pint
+from pint.compat import upcast_type_map
 
 from multipledispatch import dispatch
 
@@ -37,6 +38,17 @@ from pymodaq_data import Q_, ureg, Unit
 config = Config()
 plotter_factory = PlotterFactory()
 logger = set_logger(get_module_name(__file__))
+
+pint_upcast_type_names = (
+    'pymodaq_data.data.DataBase',
+    'pymodaq_data.data.DataCalculated',
+    'pymodaq_data.data.DataFromRoi',
+    'pymodaq_data.data.DataRaw',
+    'pymodaq_data.data.DataWithAxes',
+)
+
+upcast_type_map.update({k: None for k in pint_upcast_type_names})  # this will make sure, these
+# objects are not wrapped by pint
 
 
 def check_units(units: str):
@@ -158,6 +170,24 @@ class DataDistribution(BaseEnum):
     spread = 1
 
 
+def _compute_slices_from_axis(axis: Axis, _slice, *ignored, is_index=True, **ignored_also):
+    if not is_index:
+        if isinstance(_slice, numbers.Number):
+            if not is_index:
+                _slice = axis.find_index(_slice)
+        elif _slice is Ellipsis:
+            return _slice
+        elif isinstance(_slice, slice):
+            if not (_slice.start is None and
+                    _slice.stop is None and _slice.step is None):
+                start = axis.find_index(
+                    _slice.start if _slice.start is not None else axis.get_data()[0])
+                stop = axis.find_index(
+                    _slice.stop if _slice.stop is not None else axis.get_data()[-1])
+                _slice = slice(start, stop)
+    return _slice
+
+
 class Axis:
     """Object holding info and data about physical axis of some data
 
@@ -195,6 +225,7 @@ class Axis:
         super().__init__()
 
         self.iaxis: Axis = SpecialSlicersData(self, False)
+        self.vaxis: Axis = SpecialSlicersData(self, False, False)
 
         self._size = size
         self._data = None
@@ -244,6 +275,13 @@ class Axis:
             raise TypeError('units for the Axis class should be a string')
         units = check_units(units)
         self._units = units
+
+    def units_as(self, units: str, inplace=True, context: str = None, **context_kwargs):
+        if inplace:
+            self._units = units
+            self.data = self.get_quantity().to(units, context, **context_kwargs)
+        return Axis(self.label, units,
+                    data=self.get_quantity().to(units, context, **context_kwargs))
 
     @property
     def index(self) -> int:
@@ -375,12 +413,14 @@ class Axis:
     def __len__(self):
         return self.size
 
-    def _compute_slices(self, slices, *ignored, **ignored_also):
-        return slices
+    def _compute_slices(self, _slice, *ignored, is_index=True, **ignored_also):
+        _slice = _compute_slices_from_axis(self, _slice, is_index=is_index)
+        return _slice, _slice
 
-    def _slicer(self, _slice, *ignored, **ignored_also):
+    def _slicer(self, _slice, *ignored, is_index=True, **ignored_also):
         ax: Axis = copy.deepcopy(self)
-        if isinstance(_slice, int):
+        _slice, _slice = self._compute_slices(_slice, is_index=is_index)
+        if isinstance(_slice, numbers.Number):
             ax.data = np.array([ax.get_data()[_slice]])
             return ax
         elif _slice is Ellipsis:
@@ -650,7 +690,8 @@ class DataBase(DataLowLevel, NDArrayOperatorsMixin):
         units = check_units(units)
         self.units_as(units, inplace=True)
 
-    def units_as(self, units: str, inplace=True) -> 'DataBase':
+    def units_as(self, units: str, inplace=True, context: str = None,
+                 **context_kwargs) -> 'DataBase':
         """ Set the object units to the new one (if possible)
 
         Parameters
@@ -661,11 +702,13 @@ class DataBase(DataLowLevel, NDArrayOperatorsMixin):
             default True.
             If True replace the data's arrays by array in the new units
             If False, return a new data object
+        context: str
+            See pint documentation
         """
         arrays = []
         try:
             for ind_array in range(len(self)):
-                arrays.append(self.quantities[ind_array].m_as(units))
+                arrays.append(self.quantities[ind_array].to(units, context, **context_kwargs).magnitude)
 
         except pint.errors.DimensionalityError as e:
             raise DataUnitError(
@@ -796,6 +839,7 @@ class DataBase(DataLowLevel, NDArrayOperatorsMixin):
             units = dwa.units
             ufunc_results = [ufunc(*zipped, **kwargs) for zipped in list(zip(*elts))]
             if isinstance(ufunc_results[0], Q_):
+                ufunc_results = [ufunc_result.to_reduced_units() for ufunc_result in ufunc_results]
                 units = str(ufunc_results[0].units)
                 ufunc_results = [ufunc_result.magnitude for ufunc_result in ufunc_results]
             dwa.data = ufunc_results
@@ -1718,8 +1762,11 @@ class DataWithAxes(DataBase):
 
         self.set_axes_manager(self.shape, axes=axes, nav_indexes=nav_indexes, **other_kwargs)
 
-        self.inav: Iterable[DataWithAxes] = SpecialSlicersData(self, True)
-        self.isig: Iterable[DataWithAxes] = SpecialSlicersData(self, False)
+        self.inav = SpecialSlicersData(self, True)
+        self.isig = SpecialSlicersData(self, False)
+
+        self.vnav = SpecialSlicersData(self, True, is_index=False)
+        self.vsig = SpecialSlicersData(self, False, is_index=False)
 
         self.get_dim_from_data_axes()  # in DataBase, dim is processed from the shape of data, but if axes are provided
         #then use get_dim_from axes
@@ -2213,11 +2260,22 @@ class DataWithAxes(DataBase):
                         axes.append(ax)
         self.axes = axes
 
-    def _compute_slices(self, slices, is_navigation=True):
+    def _compute_slices(self, slices, is_navigation=True, is_index=True):
         """Compute the total slice to apply to the data
 
         Filling in Ellipsis when no slicing should be done
+        Parameters
+        ----------
+        slices: List of slice
+        is_navigation: bool
+        is_index: bool
+            if False, the slice are on the values of the underlying axes
+        Returns
+        -------
+        list(slice): the computed slices as index (eventually for all axes)
+        list(slice): a version as index of the input argument
         """
+        _slices_as_index = []
         if isinstance(slices, numbers.Number) or isinstance(slices, slice):
             slices = [slices]
         if is_navigation:
@@ -2228,13 +2286,18 @@ class DataWithAxes(DataBase):
         slices = list(slices)
         for ind in range(len(self.shape)):
             if ind in indexes:
-                total_slices.append(slices.pop(0))
+                _slice = slices.pop(0)
+                if not is_index:
+                    axis = self.get_axis_from_index(ind)[0]
+                    _slice = _compute_slices_from_axis(axis, _slice, is_index=is_index)
+                _slices_as_index.append(_slice)
+                total_slices.append(_slice)
             elif len(total_slices) == 0:
                 total_slices.append(Ellipsis)
             elif not (Ellipsis in total_slices and total_slices[-1] is Ellipsis):
                 total_slices.append(slice(None))
         total_slices = tuple(total_slices)
-        return total_slices
+        return total_slices, _slices_as_index
 
     def check_squeeze(self, total_slices: List[slice], is_navigation: bool):
 
@@ -2246,7 +2309,7 @@ class DataWithAxes(DataBase):
                 do_squeeze = False
         return do_squeeze
 
-    def _slicer(self, slices, is_navigation=True):
+    def _slicer(self, slices, is_navigation=True, is_index=True):
         """Apply a given slice to the data either navigation or signal dimension
 
         Parameters
@@ -2255,6 +2318,8 @@ class DataWithAxes(DataBase):
             the slices to apply to the data
         is_navigation: bool
             if True apply the slices to the navigation dimension else to the signal ones
+        is_index: bool
+            if True the slices are indexes otherwise the slices are axes values to be indexed first
 
         Returns
         -------
@@ -2262,10 +2327,10 @@ class DataWithAxes(DataBase):
             Object of the same type as the initial data, derived from DataWithAxes. But with lower
             data size due to the slicing and with eventually less axes.
         """
-
         if isinstance(slices, numbers.Number) or isinstance(slices, slice):
             slices = [slices]
-        total_slices = self._compute_slices(slices, is_navigation)
+
+        total_slices, slices = self._compute_slices(slices, is_navigation, is_index=is_index)
 
         do_squeeze = self.check_squeeze(total_slices, is_navigation)
         new_arrays_data = [squeeze(dat[total_slices], do_squeeze) for dat in self.data]
