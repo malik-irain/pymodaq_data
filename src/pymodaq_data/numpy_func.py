@@ -84,9 +84,15 @@ def _min(dwa: 'DataWithAxes', *args, axis: Optional[Union[int, Iterable[int]]] =
 def _std(dwa: 'DataWithAxes', *args, axis: Optional[Union[int, Iterable[int]]] = None, **kwargs):
     return process_with_reduced_dimensions(np.std, dwa, *args, axis=axis, **kwargs)
 
+
 @implements("mean")
 def _mean(dwa: 'DataWithAxes', *args, axis: Optional[Union[int, Iterable[int]]] = None, **kwargs):
     return process_with_reduced_dimensions(np.mean, dwa, *args, axis=axis, **kwargs)
+
+
+@implements("sum")
+def _sum(dwa: 'DataWithAxes', *args, axis: Optional[Union[int, Iterable[int]]] = None, **kwargs):
+    return process_with_reduced_dimensions(np.sum, dwa, *args, axis=axis, **kwargs)
 
 
 # ************* FUNCTIONS that apply with units ********
