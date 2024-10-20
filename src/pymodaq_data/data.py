@@ -39,17 +39,6 @@ config = Config()
 plotter_factory = PlotterFactory()
 logger = set_logger(get_module_name(__file__))
 
-pint_upcast_type_names = (
-    'pymodaq_data.data.DataBase',
-    'pymodaq_data.data.DataCalculated',
-    'pymodaq_data.data.DataFromRoi',
-    'pymodaq_data.data.DataRaw',
-    'pymodaq_data.data.DataWithAxes',
-)
-
-upcast_type_map.update({k: None for k in pint_upcast_type_names})  # this will make sure, these
-# objects are not wrapped by pint
-
 
 def check_units(units: str):
     try:
@@ -649,6 +638,13 @@ class DataBase(DataLowLevel, NDArrayOperatorsMixin):
 
     base_type = 'Data'
 
+    def __new__(cls, *args, **kwargs):
+        if not pint.compat.is_upcast_type(cls):
+            upcast_type_map.update({f'{cls.__module__}.{cls.__name__}': None})
+            # this will make sure, these
+            # objects are not wrapped by pint
+        return super().__new__(cls)
+
     def __init__(self, name: str,
                  source: DataSource = None, dim: DataDim = None,
                  distribution: DataDistribution = DataDistribution.uniform,
@@ -708,7 +704,12 @@ class DataBase(DataLowLevel, NDArrayOperatorsMixin):
         arrays = []
         try:
             for ind_array in range(len(self)):
-                arrays.append(self.quantities[ind_array].to(units, context, **context_kwargs).magnitude)
+                if context is None:
+                    arrays.append(
+                        self.quantities[ind_array].to(units).magnitude)
+                else:
+                    arrays.append(
+                        self.quantities[ind_array].to(units, context, **context_kwargs).magnitude)
 
         except pint.errors.DimensionalityError as e:
             raise DataUnitError(

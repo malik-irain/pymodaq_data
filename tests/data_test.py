@@ -14,6 +14,7 @@ import time
 
 import pymodaq_data
 from pymodaq_utils import math_utils as mutils
+from pymodaq_utils.units import nm2eV
 from pymodaq_data import data as data_mod
 from pymodaq_data.data import DataDim
 from pymodaq_data.post_treatment.process_to_scalar import DataProcessorFactory
@@ -1370,6 +1371,14 @@ class TestUnits:
         assert dwa_s.units == 's'
         assert np.allclose(dwa_s[0], array)
 
+        wavelength = np.array([400, 600, 800])
+        dwa = data_mod.DataRaw('data', units='nm', data=[wavelength])
+        dwa_fs = dwa.units_as('eV', inplace=False, context='spectroscopy')
+
+        assert np.allclose(dwa_fs.data[0], nm2eV(wavelength))
+
+        dwa.units_as('eV', context='spectroscopy')
+        assert np.allclose(dwa[0], nm2eV(wavelength))
 
 class TestNumpyUfunc:
 
