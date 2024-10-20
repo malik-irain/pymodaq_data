@@ -268,7 +268,10 @@ class Axis:
     def units_as(self, units: str, inplace=True, context: str = None, **context_kwargs):
         if inplace:
             self._units = units
-            self.data = self.get_quantity().to(units, context, **context_kwargs)
+            if context is None:
+                self.data = self.get_quantity().to(units)
+            else:
+                self.data = self.get_quantity().to(units, context, **context_kwargs)
         return Axis(self.label, units,
                     data=self.get_quantity().to(units, context, **context_kwargs))
 
