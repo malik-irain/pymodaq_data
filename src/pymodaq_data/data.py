@@ -232,14 +232,22 @@ class Axis:
         if (scaling is None or offset is None or size is None) and data is not None:
             self.get_scale_offset_from_data(data)
 
+    @staticmethod
+    def from_quantity(quantity: Q_[np.ndarray], label='axis', index=0) -> Axis:
+        return Axis(label, str(quantity.units), data=quantity.magnitude,
+                    index=index)
+
     def copy(self):
         return copy.copy(self)
 
-    def as_dwa(self) -> DataWithAxes:
+    def as_dwa(self, set_itself_as_axis=False) -> DataWithAxes:
         dwa = DataRaw(self.label, units=self.units,
                       data=[self.get_data()],
                       labels=[f'{self.label}_{self.units}'])
-        dwa.create_missing_axes()
+        if not set_itself_as_axis:
+            dwa.create_missing_axes()
+        else:
+            dwa.axes = [self.copy()]
         return dwa
 
     @property
@@ -255,25 +263,53 @@ class Axis:
 
     @property
     def units(self) -> str:
-        """str: get/set the units for this axis"""
+        """str: get/set the units for this axis without conversion (equivalent to
+        force_units)"""
         return self._units
 
     @units.setter
     def units(self, units: str):
-        if not isinstance(units, str):
-            raise TypeError('units for the Axis class should be a string')
+        self.force_units(units)
+
+    def force_units(self, units: str):
+        """ Change immediately the units to whatever else. Use this with care!"""
         units = check_units(units)
         self._units = units
 
     def units_as(self, units: str, inplace=True, context: str = None, **context_kwargs):
         if inplace:
-            self._units = units
+            #self._units = units
             if context is None:
-                self.data = self.get_quantity().to(units)
+                self.data = self.get_quantity().to(units).magnitude
             else:
-                self.data = self.get_quantity().to(units, context, **context_kwargs)
-        return Axis(self.label, units,
-                    data=self.get_quantity().to(units, context, **context_kwargs))
+                self.data = self.get_quantity().to(units, context, **context_kwargs).magnitude
+            self.force_units(units)
+            return
+        else:
+            if context is not None:
+                return Axis(self.label, units,
+                            data=self.get_quantity().to(units, context, **context_kwargs).magnitude)
+            else:
+                return Axis(self.label, units,
+                            data=self.get_quantity().to(units))
+
+    def to_reduced_units(self, inplace=False):
+        quantity = self.get_quantity().to_reduced_units()
+        if inplace:
+            self.data = quantity.magnitude
+            self.force_units(str(quantity.units))
+        else:
+            return Axis(self.label, units=str(quantity.units),
+                        data=quantity.magnitude)
+
+    def to_base_units(self, inplace=False):
+        quantity = self.get_quantity().to_base_units()
+        if inplace:
+            self.data = quantity.magnitude
+            self.force_units(str(quantity.units))
+        else:
+            return Axis(self.label, units=str(quantity.units),
+                        data=quantity.magnitude)
 
     @property
     def index(self) -> int:
@@ -480,6 +516,11 @@ class Axis:
             return np.mean(self._data)
         else:
             return self.offset + self.size / 2 * self.scaling
+
+    def flip(self):
+        """ flip the direction of the axis"""
+        self.data = self.get_data()[::-1]
+
 
     def min(self):
         if self._data is not None:
@@ -937,7 +978,13 @@ class DataBase(DataLowLevel, NDArrayOperatorsMixin):
 
     def angle(self):
         """ Take the phase value of itself"""
-        return np.angle(self)
+        dwa_angle = np.angle(self)
+        dwa_angle.force_units('rad')
+        return dwa_angle
+
+    def unwrap(self):
+        """ unwrap the underlying array (should be angles otherwise meaningless)"""
+        return np.unwrap(self)
 
     def real(self):
         """ Take the real part of itself"""
@@ -1956,7 +2003,32 @@ class DataWithAxes(DataBase):
                 mean = np.array([mean])
             dat_mean.append(mean)
         return self.deepcopy_with_new_data(dat_mean, remove_axes_index=axis)
-    
+
+    def moment(self) -> Tuple[DataWithAxes, DataWithAxes]:
+        """ returns the two first moments of the data over the axis
+
+        only valid for Data1D data
+
+        Returns
+        -------
+        DataCalculated: containing the moment of order 0 (mean)
+        DataCalculated: containing the moment of order 1 (std)
+        """
+        if self.dim != DataDim.Data1D:
+            raise DataDimError('the moment method is only valid for 1D data')
+        arrays_mean = []
+        arrays_std = []
+        for data in self:
+            mean, std = mutils.my_moment(self.axes[0].get_data(), data)
+            arrays_mean.append(np.array([mean]))
+            arrays_std.append(np.array([std]))
+
+        return (DataCalculated('mean', data=arrays_mean),
+                DataCalculated('std', data=arrays_std))
+
+
+
+
     def sum(self, axis: int = 0) -> DataWithAxes:
         """Process the sum of the data on the specified axis and returns the new data
 
@@ -2010,12 +2082,20 @@ class DataWithAxes(DataBase):
                                   labels=self.labels)
         return new_data
 
-    def ft(self, axis: int = 0) -> DataWithAxes:
+    def ft(self, axis: int = 0, axis_label: str = None,
+           axis_units: str = None, labels: List[str] = None) -> DataWithAxes:
         """Process the Fourier Transform of the data on the specified axis and returns the new data
 
         Parameters
         ----------
         axis: int
+            Apply the FT on this axis index
+        axis_label: str
+            A new label for the FT computed axis
+        axis_units: str
+            New units (without conversion on top of the one from the FT) for the computed axis
+        labels: List[str]
+            list of string for new labels
 
         Returns
         -------
@@ -2032,19 +2112,34 @@ class DataWithAxes(DataBase):
         for dat in self.data:
             dat_ft.append(mutils.ft(dat, dim=axis))
         new_data = self.deepcopy_with_new_data(dat_ft)
+        if labels is not None:
+            new_data.labels = labels
         axis_obj = new_data.get_axis_from_index(axis)[0]
         axis_obj.data = omega_grid
-        axis_obj.label = f'ft({axis_obj.label})'
-        axis_obj.units = f'rad/{axis_obj.units}'
+        if axis_label is not None:
+            axis_obj.label = axis_label
+        else:
+            axis_obj.label = f'ft({axis_obj.label})'
+        if axis_units is not None:
+            axis_obj.force_units(axis_units)
+        else:
+            axis_obj.units = f'rad/{axis_obj.units}'
         return new_data
 
-    def ift(self, axis: int = 0) -> DataWithAxes:
+    def ift(self, axis: int = 0, axis_label: str = None,
+           axis_units: str = None, labels: List[str] = None) -> DataWithAxes:
         """Process the inverse Fourier Transform of the data on the specified axis and returns the
         new data
 
         Parameters
         ----------
         axis: int
+        axis_label: str
+            A new label for the FT computed axis
+        axis_units: str
+            New units (without conversion on top of the one from the FT) for the computed axis
+        labels: List[str]
+            list of string for new labels
 
         Returns
         -------
@@ -2061,10 +2156,18 @@ class DataWithAxes(DataBase):
         for dat in self.data:
             dat_ift.append(mutils.ift(dat, dim=axis))
         new_data = self.deepcopy_with_new_data(dat_ift)
+        if labels is not None:
+            new_data.labels = labels
         axis_obj = new_data.get_axis_from_index(axis)[0]
         axis_obj.data = omega_grid
-        axis_obj.label = f'ift({axis_obj.label})'
-        axis_obj.units = str(Unit(f'rad/({axis_obj.units})'))
+        if axis_label is not None:
+            axis_obj.label = axis_label
+        else:
+            axis_obj.label = f'ift({axis_obj.label})'
+        if axis_units is not None:
+            axis_obj.force_units(axis_units)
+        else:
+            axis_obj.units = str(Unit(f'rad/({axis_obj.units})'))
         return new_data
 
     def fit(self, function: Callable, initial_guess: IterableType, data_index: int = None,

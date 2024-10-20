@@ -106,6 +106,14 @@ def _angle(dwa: 'DataWithAxes', *args, **kwargs):
     return dwa_func
 
 
+@implements('unwrap')
+def _unwrap(dwa: 'DataWithAxes', *args, **kwargs):
+    dwa_func = dwa.deepcopy_with_new_data(
+        data=[np.unwrap(array, *args, **kwargs) for array in dwa.data])
+    dwa_func.name += f"_{'unwrap'}"
+    return dwa_func
+
+
 @implements('real')
 def _real(dwa: 'DataWithAxes', *args, **kwargs):
 

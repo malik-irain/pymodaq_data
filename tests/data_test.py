@@ -14,7 +14,7 @@ import time
 
 import pymodaq_data
 from pymodaq_utils import math_utils as mutils
-from pymodaq_utils.units import nm2eV
+from pymodaq_utils.units import nm2eV, eV2nm
 from pymodaq_data import data as data_mod
 from pymodaq_data.data import DataDim
 from pymodaq_data.post_treatment.process_to_scalar import DataProcessorFactory
@@ -158,6 +158,23 @@ class TestAxis:
 
         axis = data_mod.Axis('axis', units='unknown units', data=np.array([0, 1]))
         assert axis.units == ''
+
+    def test_units_as(self):
+        eVs = np.array([1, 1.5, 2])
+        axis = data_mod.Axis('wavelength', units='eV', data=eVs)
+        axis.units_as('nm', inplace=True, context='spectroscopy')
+        assert axis.units == 'nm'
+        assert np.allclose(axis.get_data(), eV2nm(eVs))
+
+        axis_again = data_mod.Axis('wavelength', units='eV', data=eVs)
+        new_axis = axis_again.units_as('nm', inplace=False, context='spectroscopy')
+        assert new_axis.units == 'nm'
+        assert np.allclose(new_axis.get_data(), eV2nm(eVs))
+        assert axis_again == data_mod.Axis('wavelength', units='eV', data=eVs)
+
+        axis_base = new_axis.to_base_units()
+        assert axis_base.units == 'm'
+        assert np.allclose(axis_base.get_data(), eV2nm(eVs) * 1e-9)
 
     def test_errors(self):
         with pytest.raises(TypeError):
