@@ -20,6 +20,7 @@ import warnings
 from time import time
 import copy
 import pint
+from pint.compat import upcast_type_map
 
 from multipledispatch import dispatch
 
@@ -158,6 +159,24 @@ class DataDistribution(BaseEnum):
     spread = 1
 
 
+def _compute_slices_from_axis(axis: Axis, _slice, *ignored, is_index=True, **ignored_also):
+    if not is_index:
+        if isinstance(_slice, numbers.Number):
+            if not is_index:
+                _slice = axis.find_index(_slice)
+        elif _slice is Ellipsis:
+            return _slice
+        elif isinstance(_slice, slice):
+            if not (_slice.start is None and
+                    _slice.stop is None and _slice.step is None):
+                start = axis.find_index(
+                    _slice.start if _slice.start is not None else axis.get_data()[0])
+                stop = axis.find_index(
+                    _slice.stop if _slice.stop is not None else axis.get_data()[-1])
+                _slice = slice(start, stop)
+    return _slice
+
+
 class Axis:
     """Object holding info and data about physical axis of some data
 
@@ -195,6 +214,7 @@ class Axis:
         super().__init__()
 
         self.iaxis: Axis = SpecialSlicersData(self, False)
+        self.vaxis: Axis = SpecialSlicersData(self, False, False)
 
         self._size = size
         self._data = None
@@ -212,13 +232,22 @@ class Axis:
         if (scaling is None or offset is None or size is None) and data is not None:
             self.get_scale_offset_from_data(data)
 
+    @staticmethod
+    def from_quantity(quantity: Q_[np.ndarray], label='axis', index=0) -> Axis:
+        return Axis(label, str(quantity.units), data=quantity.magnitude,
+                    index=index)
+
     def copy(self):
         return copy.copy(self)
 
-    def as_dwa(self) -> DataWithAxes:
-        dwa = DataRaw(self.label, data=[self.get_data()],
+    def as_dwa(self, set_itself_as_axis=False) -> DataWithAxes:
+        dwa = DataRaw(self.label, units=self.units,
+                      data=[self.get_data()],
                       labels=[f'{self.label}_{self.units}'])
-        dwa.create_missing_axes()
+        if not set_itself_as_axis:
+            dwa.create_missing_axes()
+        else:
+            dwa.axes = [self.copy()]
         return dwa
 
     @property
@@ -234,15 +263,53 @@ class Axis:
 
     @property
     def units(self) -> str:
-        """str: get/set the units for this axis"""
+        """str: get/set the units for this axis without conversion (equivalent to
+        force_units)"""
         return self._units
 
     @units.setter
     def units(self, units: str):
-        if not isinstance(units, str):
-            raise TypeError('units for the Axis class should be a string')
+        self.force_units(units)
+
+    def force_units(self, units: str):
+        """ Change immediately the units to whatever else. Use this with care!"""
         units = check_units(units)
         self._units = units
+
+    def units_as(self, units: str, inplace=True, context: str = None, **context_kwargs):
+        if inplace:
+            #self._units = units
+            if context is None:
+                self.data = self.get_quantity().to(units).magnitude
+            else:
+                self.data = self.get_quantity().to(units, context, **context_kwargs).magnitude
+            self.force_units(units)
+            return
+        else:
+            if context is not None:
+                return Axis(self.label, units,
+                            data=self.get_quantity().to(units, context, **context_kwargs).magnitude)
+            else:
+                return Axis(self.label, units,
+                            data=self.get_quantity().to(units))
+
+    def to_reduced_units(self, inplace=False):
+        quantity = self.get_quantity().to_reduced_units()
+        if inplace:
+            self.data = quantity.magnitude
+            self.force_units(str(quantity.units))
+        else:
+            return Axis(self.label, units=str(quantity.units),
+                        data=quantity.magnitude)
+
+    def to_base_units(self, inplace=False):
+        quantity = self.get_quantity().to_base_units()
+        if inplace:
+            self.data = quantity.magnitude
+            self.force_units(str(quantity.units))
+        else:
+            return Axis(self.label, units=str(quantity.units),
+                        data=quantity.magnitude)
 
     @property
     def index(self) -> int:
@@ -260,7 +327,7 @@ class Axis:
         return self._data
 
     @data.setter
-    def data(self, data: np.ndarray):
+    def data(self, data: Union[np.ndarray, Q_]):
         if data is not None:
             self._check_data_valid(data)
             self.get_scale_offset_from_data(data)
@@ -272,6 +339,10 @@ class Axis:
     def get_data(self) -> np.ndarray:
         """Convenience method to obtain the axis data (usually None because scaling and offset are used)"""
         return self._data if self._data is not None else self._linear_data(self.size)
+
+    def get_quantity(self) -> Q_:
+        """ Convenience method to obtain the numerical data as a quantity array"""
+        return Q_(self.get_data(), self.units)
 
     def get_data_at(self, indexes: Union[int, IterableType, slice]) -> np.ndarray:
         """ Get data at specified indexes
@@ -346,8 +417,10 @@ class Axis:
         elif index < 0:
             raise ValueError('index for the Axis class should be a positive integer')
 
-    @staticmethod
-    def _check_data_valid(data):
+    def _check_data_valid(self, data: Union[np.ndarray, Q_]):
+        if isinstance(data, Q_):
+            self.units = str(data.units)
+            data = data.magnitude
         if not isinstance(data, np.ndarray):
             raise TypeError(f'data for the Axis class should be a 1D numpy array')
         elif len(data.shape) != 1:
@@ -368,12 +441,14 @@ class Axis:
     def __len__(self):
         return self.size
 
-    def _compute_slices(self, slices, *ignored, **ignored_also):
-        return slices
+    def _compute_slices(self, _slice, *ignored, is_index=True, **ignored_also):
+        _slice = _compute_slices_from_axis(self, _slice, is_index=is_index)
+        return _slice, _slice
 
-    def _slicer(self, _slice, *ignored, **ignored_also):
+    def _slicer(self, _slice, *ignored, is_index=True, **ignored_also):
         ax: Axis = copy.deepcopy(self)
-        if isinstance(_slice, int):
+        _slice, _slice = self._compute_slices(_slice, is_index=is_index)
+        if isinstance(_slice, numbers.Number):
             ax.data = np.array([ax.get_data()[_slice]])
             return ax
         elif _slice is Ellipsis:
@@ -441,6 +516,11 @@ class Axis:
             return np.mean(self._data)
         else:
             return self.offset + self.size / 2 * self.scaling
+
+    def flip(self):
+        """ flip the direction of the axis"""
+        self.data = self.get_data()[::-1]
+
 
     def min(self):
         if self._data is not None:
@@ -533,8 +613,9 @@ class DataBase(DataLowLevel, NDArrayOperatorsMixin):
     distribution: DataDistribution or str
         The distribution type of the data: uniform if distributed on a regular grid or spread if on
         specific unordered points
-    data: list of ndarray
-        The data the object is storing
+    data: list of ndarray or Quantities
+        The data the object is storing. In case of Quantities, the object units attribute will
+        be forced to the unit of this quantity, ignoring the units argument.
     labels: list of str
         The labels of the data nd-arrays
     origin: str
@@ -601,6 +682,13 @@ class DataBase(DataLowLevel, NDArrayOperatorsMixin):
 
     base_type = 'Data'
 
+    def __new__(cls, *args, **kwargs):
+        if not pint.compat.is_upcast_type(cls):
+            upcast_type_map.update({f'{cls.__module__}.{cls.__name__}': None})
+            # this will make sure, these
+            # objects are not wrapped by pint
+        return super().__new__(cls)
+
     def __init__(self, name: str,
                  source: DataSource = None, dim: DataDim = None,
                  distribution: DataDistribution = DataDistribution.uniform,
@@ -642,7 +730,8 @@ class DataBase(DataLowLevel, NDArrayOperatorsMixin):
         units = check_units(units)
         self.units_as(units, inplace=True)
 
-    def units_as(self, units: str, inplace=True) -> 'DataBase':
+    def units_as(self, units: str, inplace=True, context: str = None,
+                 **context_kwargs) -> 'DataBase':
         """ Set the object units to the new one (if possible)
 
         Parameters
@@ -653,11 +742,18 @@ class DataBase(DataLowLevel, NDArrayOperatorsMixin):
             default True.
             If True replace the data's arrays by array in the new units
             If False, return a new data object
+        context: str
+            See pint documentation
         """
         arrays = []
         try:
             for ind_array in range(len(self)):
-                arrays.append(self.quantities[ind_array].m_as(units))
+                if context is None:
+                    arrays.append(
+                        self.quantities[ind_array].to(units).magnitude)
+                else:
+                    arrays.append(
+                        self.quantities[ind_array].to(units, context, **context_kwargs).magnitude)
 
         except pint.errors.DimensionalityError as e:
             raise DataUnitError(
@@ -788,6 +884,7 @@ class DataBase(DataLowLevel, NDArrayOperatorsMixin):
             units = dwa.units
             ufunc_results = [ufunc(*zipped, **kwargs) for zipped in list(zip(*elts))]
             if isinstance(ufunc_results[0], Q_):
+                ufunc_results = [ufunc_result.to_reduced_units() for ufunc_result in ufunc_results]
                 units = str(ufunc_results[0].units)
                 ufunc_results = [ufunc_result.magnitude for ufunc_result in ufunc_results]
             dwa.data = ufunc_results
@@ -881,7 +978,13 @@ class DataBase(DataLowLevel, NDArrayOperatorsMixin):
 
     def angle(self):
         """ Take the phase value of itself"""
-        return np.angle(self)
+        dwa_angle = np.angle(self)
+        dwa_angle.force_units('rad')
+        return dwa_angle
+
+    def unwrap(self):
+        """ unwrap the underlying array (should be angles otherwise meaningless)"""
+        return np.unwrap(self)
 
     def real(self):
         """ Take the real part of itself"""
@@ -1002,15 +1105,17 @@ class DataBase(DataLowLevel, NDArrayOperatorsMixin):
         """Get the data by its index in the list, same as self[index]"""
         return self.data[index]
 
-    @staticmethod
-    def _check_data_type(data: List[np.ndarray]) -> List[np.ndarray]:
+    def _check_data_type(self, data: List[Union[np.ndarray, Q_]]) -> List[np.ndarray]:
         """make sure data is a list of nd-arrays"""
         is_valid = True
         if data is None:
             is_valid = False
         if not isinstance(data, list):
             # try to transform the data to regular type
-            if isinstance(data, np.ndarray):
+            if isinstance(data, Q_):
+                self.force_units(str(data.units))
+                data = [data.magnitude]
+            elif isinstance(data, np.ndarray):
                 warnings.warn(DataTypeWarning(f'Your data should be a list of numpy arrays not just a single numpy'
                                               f' array, wrapping them with a list'))
                 data = [data]
@@ -1023,12 +1128,16 @@ class DataBase(DataLowLevel, NDArrayOperatorsMixin):
         if isinstance(data, list):
             if len(data) == 0:
                 is_valid = False
-            elif not isinstance(data[0], np.ndarray):
+            elif not (isinstance(data[0], np.ndarray) or
+                             isinstance(data[0], Q_)):
                 is_valid = False
             elif len(data[0].shape) == 0:
                 is_valid = False
         if not is_valid:
             raise TypeError(f'Data should be an non-empty list of non-empty numpy arrays')
+        if isinstance(data[0], Q_):
+            self.force_units(str(data[0].units))
+            data = [array.magnitude for array in data]
         return data
 
     def check_shape_from_data(self, data: List[np.ndarray]):
@@ -1093,7 +1202,7 @@ class DataBase(DataLowLevel, NDArrayOperatorsMixin):
         return self._data
 
     @data.setter
-    def data(self, data: List[np.ndarray]):
+    def data(self, data: List[Union[np.ndarray, Q_]]):
         data = self._check_data_type(data)
         self._check_shape_dim_consistency(data)
         self._check_same_shape(data)
@@ -1704,8 +1813,11 @@ class DataWithAxes(DataBase):
 
         self.set_axes_manager(self.shape, axes=axes, nav_indexes=nav_indexes, **other_kwargs)
 
-        self.inav: Iterable[DataWithAxes] = SpecialSlicersData(self, True)
-        self.isig: Iterable[DataWithAxes] = SpecialSlicersData(self, False)
+        self.inav = SpecialSlicersData(self, True)
+        self.isig = SpecialSlicersData(self, False)
+
+        self.vnav = SpecialSlicersData(self, True, is_index=False)
+        self.vsig = SpecialSlicersData(self, False, is_index=False)
 
         self.get_dim_from_data_axes()  # in DataBase, dim is processed from the shape of data, but if axes are provided
         #then use get_dim_from axes
@@ -1891,7 +2003,32 @@ class DataWithAxes(DataBase):
                 mean = np.array([mean])
             dat_mean.append(mean)
         return self.deepcopy_with_new_data(dat_mean, remove_axes_index=axis)
-    
+
+    def moment(self) -> Tuple[DataWithAxes, DataWithAxes]:
+        """ returns the two first moments of the data over the axis
+
+        only valid for Data1D data
+
+        Returns
+        -------
+        DataCalculated: containing the moment of order 0 (mean)
+        DataCalculated: containing the moment of order 1 (std)
+        """
+        if self.dim != DataDim.Data1D:
+            raise DataDimError('the moment method is only valid for 1D data')
+        arrays_mean = []
+        arrays_std = []
+        for data in self:
+            mean, std = mutils.my_moment(self.axes[0].get_data(), data)
+            arrays_mean.append(np.array([mean]))
+            arrays_std.append(np.array([std]))
+
+        return (DataCalculated('mean', data=arrays_mean),
+                DataCalculated('std', data=arrays_std))
+
+
+
+
     def sum(self, axis: int = 0) -> DataWithAxes:
         """Process the sum of the data on the specified axis and returns the new data
 
@@ -1905,7 +2042,7 @@ class DataWithAxes(DataBase):
         """
         dat_sum = []
         for dat in self.data:
-            dat_sum.append(np.sum(dat, axis=axis))
+            dat_sum.append(np.atleast_1d(np.sum(dat, axis=axis)))
         return self.deepcopy_with_new_data(dat_sum, remove_axes_index=axis)
 
     def interp(self,  new_axis_data: Union[Axis, np.ndarray], **kwargs) -> DataWithAxes:
@@ -1945,12 +2082,20 @@ class DataWithAxes(DataBase):
                                   labels=self.labels)
         return new_data
 
-    def ft(self, axis: int = 0) -> DataWithAxes:
+    def ft(self, axis: int = 0, axis_label: str = None,
+           axis_units: str = None, labels: List[str] = None) -> DataWithAxes:
         """Process the Fourier Transform of the data on the specified axis and returns the new data
 
         Parameters
         ----------
         axis: int
+            Apply the FT on this axis index
+        axis_label: str
+            A new label for the FT computed axis
+        axis_units: str
+            New units (without conversion on top of the one from the FT) for the computed axis
+        labels: List[str]
+            list of string for new labels
 
         Returns
         -------
@@ -1967,19 +2112,34 @@ class DataWithAxes(DataBase):
         for dat in self.data:
             dat_ft.append(mutils.ft(dat, dim=axis))
         new_data = self.deepcopy_with_new_data(dat_ft)
+        if labels is not None:
+            new_data.labels = labels
         axis_obj = new_data.get_axis_from_index(axis)[0]
         axis_obj.data = omega_grid
-        axis_obj.label = f'ft({axis_obj.label})'
-        axis_obj.units = f'rad/{axis_obj.units}'
+        if axis_label is not None:
+            axis_obj.label = axis_label
+        else:
+            axis_obj.label = f'ft({axis_obj.label})'
+        if axis_units is not None:
+            axis_obj.force_units(axis_units)
+        else:
+            axis_obj.units = f'rad/{axis_obj.units}'
         return new_data
 
-    def ift(self, axis: int = 0) -> DataWithAxes:
+    def ift(self, axis: int = 0, axis_label: str = None,
+           axis_units: str = None, labels: List[str] = None) -> DataWithAxes:
         """Process the inverse Fourier Transform of the data on the specified axis and returns the
         new data
 
         Parameters
         ----------
         axis: int
+        axis_label: str
+            A new label for the FT computed axis
+        axis_units: str
+            New units (without conversion on top of the one from the FT) for the computed axis
+        labels: List[str]
+            list of string for new labels
 
         Returns
         -------
@@ -1996,10 +2156,18 @@ class DataWithAxes(DataBase):
         for dat in self.data:
             dat_ift.append(mutils.ift(dat, dim=axis))
         new_data = self.deepcopy_with_new_data(dat_ift)
+        if labels is not None:
+            new_data.labels = labels
         axis_obj = new_data.get_axis_from_index(axis)[0]
         axis_obj.data = omega_grid
-        axis_obj.label = f'ift({axis_obj.label})'
-        axis_obj.units = str(Unit(f'rad/({axis_obj.units})'))
+        if axis_label is not None:
+            axis_obj.label = axis_label
+        else:
+            axis_obj.label = f'ift({axis_obj.label})'
+        if axis_units is not None:
+            axis_obj.force_units(axis_units)
+        else:
+            axis_obj.units = str(Unit(f'rad/({axis_obj.units})'))
         return new_data
 
     def fit(self, function: Callable, initial_guess: IterableType, data_index: int = None,
@@ -2199,11 +2367,22 @@ class DataWithAxes(DataBase):
                         axes.append(ax)
         self.axes = axes
 
-    def _compute_slices(self, slices, is_navigation=True):
+    def _compute_slices(self, slices, is_navigation=True, is_index=True):
         """Compute the total slice to apply to the data
 
         Filling in Ellipsis when no slicing should be done
+        Parameters
+        ----------
+        slices: List of slice
+        is_navigation: bool
+        is_index: bool
+            if False, the slice are on the values of the underlying axes
+        Returns
+        -------
+        list(slice): the computed slices as index (eventually for all axes)
+        list(slice): a version as index of the input argument
         """
+        _slices_as_index = []
         if isinstance(slices, numbers.Number) or isinstance(slices, slice):
             slices = [slices]
         if is_navigation:
@@ -2214,13 +2393,18 @@ class DataWithAxes(DataBase):
         slices = list(slices)
         for ind in range(len(self.shape)):
             if ind in indexes:
-                total_slices.append(slices.pop(0))
+                _slice = slices.pop(0)
+                if not is_index:
+                    axis = self.get_axis_from_index(ind)[0]
+                    _slice = _compute_slices_from_axis(axis, _slice, is_index=is_index)
+                _slices_as_index.append(_slice)
+                total_slices.append(_slice)
             elif len(total_slices) == 0:
                 total_slices.append(Ellipsis)
             elif not (Ellipsis in total_slices and total_slices[-1] is Ellipsis):
                 total_slices.append(slice(None))
         total_slices = tuple(total_slices)
-        return total_slices
+        return total_slices, _slices_as_index
 
     def check_squeeze(self, total_slices: List[slice], is_navigation: bool):
 
@@ -2232,7 +2416,7 @@ class DataWithAxes(DataBase):
                 do_squeeze = False
         return do_squeeze
 
-    def _slicer(self, slices, is_navigation=True):
+    def _slicer(self, slices, is_navigation=True, is_index=True):
         """Apply a given slice to the data either navigation or signal dimension
 
         Parameters
@@ -2241,6 +2425,8 @@ class DataWithAxes(DataBase):
             the slices to apply to the data
         is_navigation: bool
             if True apply the slices to the navigation dimension else to the signal ones
+        is_index: bool
+            if True the slices are indexes otherwise the slices are axes values to be indexed first
 
         Returns
         -------
@@ -2248,10 +2434,10 @@ class DataWithAxes(DataBase):
             Object of the same type as the initial data, derived from DataWithAxes. But with lower
             data size due to the slicing and with eventually less axes.
         """
-
         if isinstance(slices, numbers.Number) or isinstance(slices, slice):
             slices = [slices]
-        total_slices = self._compute_slices(slices, is_navigation)
+
+        total_slices, slices = self._compute_slices(slices, is_navigation, is_index=is_index)
 
         do_squeeze = self.check_squeeze(total_slices, is_navigation)
         new_arrays_data = [squeeze(dat[total_slices], do_squeeze) for dat in self.data]

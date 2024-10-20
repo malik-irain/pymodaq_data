@@ -737,7 +737,7 @@ class DataToExportSaver:
     def __init__(self, h5saver: Union[H5SaverLowLevel, Path, str]):
         if isinstance(h5saver, Path) or isinstance(h5saver, str):
             h5saver_tmp = H5SaverLowLevel()
-            h5saver_tmp.init_file(addhoc_file_path=Path(h5saver))
+            h5saver_tmp.init_file(file_name=Path(h5saver))
             h5saver = h5saver_tmp
 
         self._h5saver = h5saver
@@ -748,7 +748,7 @@ class DataToExportSaver:
         return self._h5saver.get_node(where)
 
     def close(self):
-        self._h5saver.close()
+        self.close_file()
 
     def close_file(self):
         self._h5saver.close_file()

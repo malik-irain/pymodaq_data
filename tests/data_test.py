@@ -12,7 +12,9 @@ import pytest
 from pytest import approx, mark
 import time
 
+import pymodaq_data
 from pymodaq_utils import math_utils as mutils
+from pymodaq_utils.units import nm2eV, eV2nm
 from pymodaq_data import data as data_mod
 from pymodaq_data.data import DataDim
 from pymodaq_data.post_treatment.process_to_scalar import DataProcessorFactory
@@ -157,6 +159,23 @@ class TestAxis:
         axis = data_mod.Axis('axis', units='unknown units', data=np.array([0, 1]))
         assert axis.units == ''
 
+    def test_units_as(self):
+        eVs = np.array([1, 1.5, 2])
+        axis = data_mod.Axis('wavelength', units='eV', data=eVs)
+        axis.units_as('nm', inplace=True, context='spectroscopy')
+        assert axis.units == 'nm'
+        assert np.allclose(axis.get_data(), eV2nm(eVs))
+
+        axis_again = data_mod.Axis('wavelength', units='eV', data=eVs)
+        new_axis = axis_again.units_as('nm', inplace=False, context='spectroscopy')
+        assert new_axis.units == 'nm'
+        assert np.allclose(new_axis.get_data(), eV2nm(eVs))
+        assert axis_again == data_mod.Axis('wavelength', units='eV', data=eVs)
+
+        axis_base = new_axis.to_base_units()
+        assert axis_base.units == 'm'
+        assert np.allclose(axis_base.get_data(), eV2nm(eVs) * 1e-9)
+
     def test_errors(self):
         with pytest.raises(TypeError):
             data_mod.Axis(label=24)
@@ -229,8 +248,10 @@ class TestAxis:
         ax = init_axis_fixt
 
         ellipsis_axis = ax.iaxis[...]
+        ellipsis_axis_value = ax.vaxis[...]
         assert isinstance(ellipsis_axis, data_mod.Axis)
         assert ellipsis_axis == ax
+        assert ellipsis_axis_value == ax
 
         ind_start = 2
         ind_end = 10
@@ -239,11 +260,17 @@ class TestAxis:
         assert len(sliced_axis) == ind_end - ind_start
         assert np.allclose(sliced_axis.get_data(), ax.get_data()[ind_start:ind_end])
 
+        sliced_axis_value = ax.vaxis[ax.get_data()[ind_start]:ax.get_data()[ind_end]]
+        assert sliced_axis == sliced_axis_value
+
         ind_int = 3
         int_axis = ax.iaxis[ind_int]
+        int_axis_value = ax.vaxis[ax.get_data()[ind_int]]
+
         assert isinstance(int_axis, data_mod.Axis)
         assert len(int_axis) == 1
         assert int_axis.get_data()[0] == ax.get_data()[ind_int]
+        assert int_axis == int_axis_value
 
     def test_slice_setter(self, init_axis_fixt):
         ax = init_axis_fixt
@@ -897,23 +924,36 @@ class TestSlicingUniform:
         assert data_raw.shape == (Nn0, Nn1, DATA2D.shape[0], DATA2D.shape[1])
 
         data_00: data_mod.DataWithAxes = data_raw.inav[0, :]
+        data_OO_value: data_mod.DataWithAxes = data_raw.vnav[0., :]
+        assert data_OO_value == data_00
         assert data_00.shape == (Nn1, DATA2D.shape[0], DATA2D.shape[1])
         assert len(data_00.axes) == 3
         assert data_00.nav_indexes == (0, )
         assert data_00.get_axis_from_index(0)[0].label == 'nav1'
 
         data_01 = data_raw.inav[:, 2]
+        axis = data_raw.get_axis_from_index(data_raw.nav_indexes[1])[0]
+        data_01_value = data_raw.vnav[:, axis.get_data()[2]]
+        assert data_01 == data_01_value
         assert data_01.shape == (Nn0, DATA2D.shape[0], DATA2D.shape[1])
         assert len(data_01.axes) == 3
         assert data_01.nav_indexes == (0, )
         assert data_01.get_axis_from_index(0)[0].label == 'nav0'
 
         data_1 = data_raw.inav[0, 2]
+        axis_0 = axis = data_raw.get_axis_from_index(data_raw.nav_indexes[0])[0]
+        axis_1 = axis = data_raw.get_axis_from_index(data_raw.nav_indexes[1])[0]
+        data_1_value = data_raw.vnav[axis_0.get_data()[0],
+            axis_1.get_data()[2]]
+        assert data_1 == data_1_value
         assert data_1.shape == (DATA2D.shape[0], DATA2D.shape[1])
         assert len(data_1.axes) == 2
         assert data_1.nav_indexes == ()
 
         data_2: data_mod.DataWithAxes = data_raw.inav[0:3, 2:4]
+        data_2_value = data_raw.vnav[axis_0.get_data()[0]:axis_0.get_data()[3],
+            axis_1.get_data()[2]:axis_1.get_data()[4]]
+        assert data_2 == data_2_value
         assert data_2.shape == (3, 2, DATA2D.shape[0], DATA2D.shape[1])
         assert data_2.get_axis_from_index(0)[0].size == 3
         assert data_2.get_axis_from_index(1)[0].size == 2
@@ -923,6 +963,8 @@ class TestSlicingUniform:
         assert data_raw.shape == (Nn0, Nn1, DATA2D.shape[0], DATA2D.shape[1])
 
         data_sliced = data_raw.inav[0, ...]
+        data_sliced_value = data_raw.vnav[0, ...]
+        assert data_sliced == data_sliced_value
         assert data_sliced.nav_indexes == (0,)
         assert data_sliced.shape == (Nn1, DATA2D.shape[0], DATA2D.shape[1])
 
@@ -968,6 +1010,8 @@ class TestSlicingUniform:
         data_nav = data_mod.DataRaw('to replace', data=[np.ones((5, 6))])
 
         data_raw.isig[0] = data_nav
+
+        assert np.allclose(data_raw.isig[0][0], data_nav[0])
 
 
 class TestSlicingSpread:
@@ -1344,6 +1388,14 @@ class TestUnits:
         assert dwa_s.units == 's'
         assert np.allclose(dwa_s[0], array)
 
+        wavelength = np.array([400, 600, 800])
+        dwa = data_mod.DataRaw('data', units='nm', data=[wavelength])
+        dwa_fs = dwa.units_as('eV', inplace=False, context='spectroscopy')
+
+        assert np.allclose(dwa_fs.data[0], nm2eV(wavelength))
+
+        dwa.units_as('eV', context='spectroscopy')
+        assert np.allclose(dwa[0], nm2eV(wavelength))
 
 class TestNumpyUfunc:
 
@@ -1422,10 +1474,18 @@ class TestNumpyUfunc:
 
         dwa_s_ms = np.multiply(dwa_s, dwa_ms)
 
-        assert np.allclose(dwa_s_ms.data[0], DATA1D * DATA1D)
+        assert np.allclose(dwa_s_ms.quantities[0],
+                           data_mod.Q_(DATA1D, 's') * data_mod.Q_(DATA1D, 'ms'))
 
-        dwa_s_ms.units = 's*s'
-        assert np.allclose(dwa_s_ms.data[0], DATA1D * DATA1D / 1000)
+        assert dwa_s_ms.quantities[0].is_compatible_with('s*s')
+
+    def test_quantity_dwa_mult(self):
+        q = data_mod.Q_(3.5, 's')
+        dwa_s = data_mod.DataRaw('raw', units='Hz', data=[DATA1D, DATA1D])
+
+        dwa_ufunc = q * dwa_s
+        assert isinstance(dwa_ufunc, type(dwa_s))
+        assert np.allclose(dwa_ufunc[0], q.magnitude * DATA1D)
 
 
 class TestFuncNumpy:

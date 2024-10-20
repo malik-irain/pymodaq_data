@@ -84,9 +84,15 @@ def _min(dwa: 'DataWithAxes', *args, axis: Optional[Union[int, Iterable[int]]] =
 def _std(dwa: 'DataWithAxes', *args, axis: Optional[Union[int, Iterable[int]]] = None, **kwargs):
     return process_with_reduced_dimensions(np.std, dwa, *args, axis=axis, **kwargs)
 
+
 @implements("mean")
 def _mean(dwa: 'DataWithAxes', *args, axis: Optional[Union[int, Iterable[int]]] = None, **kwargs):
     return process_with_reduced_dimensions(np.mean, dwa, *args, axis=axis, **kwargs)
+
+
+@implements("sum")
+def _sum(dwa: 'DataWithAxes', *args, axis: Optional[Union[int, Iterable[int]]] = None, **kwargs):
+    return process_with_reduced_dimensions(np.sum, dwa, *args, axis=axis, **kwargs)
 
 
 # ************* FUNCTIONS that apply with units ********
@@ -97,6 +103,14 @@ def _angle(dwa: 'DataWithAxes', *args, **kwargs):
     dwa_func = dwa.deepcopy_with_new_data(
         data=[np.angle(array, *args, **kwargs) for array in dwa.data])
     dwa_func.name += f"_{'angle'}"
+    return dwa_func
+
+
+@implements('unwrap')
+def _unwrap(dwa: 'DataWithAxes', *args, **kwargs):
+    dwa_func = dwa.deepcopy_with_new_data(
+        data=[np.unwrap(array, *args, **kwargs) for array in dwa.data])
+    dwa_func.name += f"_{'unwrap'}"
     return dwa_func
 
 
