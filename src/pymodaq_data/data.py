@@ -1797,7 +1797,13 @@ class DataWithAxes(DataBase):
         should match the data ndarray
     """
 
-    def __init__(self, *args, axes: List[Axis] = [],
+    def __init__(self, name: str,
+                 source: DataSource = None, dim: DataDim = None,
+                 distribution: DataDistribution = DataDistribution.uniform,
+                 data: List[np.ndarray] = None,
+                 labels: List[str] = None, origin: str = '',
+                 units: str = '',
+                 axes: List[Axis] = [],
                  nav_indexes: Tuple[int] = (),
                  errors: Iterable[np.ndarray] = None,
                  **kwargs):
@@ -1812,7 +1818,13 @@ class DataWithAxes(DataBase):
         nav_x_axis = kwargs.pop('nav_x_axis') if 'nav_x_axis' in kwargs else None
         nav_y_axis = kwargs.pop('nav_y_axis') if 'nav_y_axis' in kwargs else None
 
-        super().__init__(*args, **kwargs)
+        super().__init__(name, source=source, dim=dim,
+                         distribution=distribution,
+                         data=data,
+                         labels=labels,
+                         origin=origin,
+                         units=units,
+                         **kwargs)
 
         self._axes = axes
 
@@ -2601,24 +2613,87 @@ class DataWithAxes(DataBase):
 
 class DataRaw(DataWithAxes):
     """Specialized DataWithAxes set with source as 'raw'. To be used for raw data"""
-    def __init__(self, *args,  **kwargs):
+    def __init__(self, name: str,
+                 dim: DataDim = None,
+                 distribution: DataDistribution = DataDistribution.uniform,
+                 data: List[np.ndarray] = None,
+                 labels: List[str] = None, origin: str = '',
+                 units: str = '',
+                 axes: List[Axis] = [],
+                 nav_indexes: Tuple[int] = (),
+                 errors: Iterable[np.ndarray] = None,
+                 **kwargs):
         if 'source' in kwargs:
             kwargs.pop('source')
-        super().__init__(*args, source=DataSource['raw'], **kwargs)
+
+        super().__init__(name, source=DataSource.raw,
+                         dim=dim,
+                         distribution=distribution,
+                         data=data,
+                         labels=labels,
+                         origin=origin,
+                         units=units,
+                         axes=axes,
+                         nav_indexes=nav_indexes,
+                         errors=errors,
+                         **kwargs
+                         )
 
 
 class DataCalculated(DataWithAxes):
-    """Specialized DataWithAxes set with source as 'calculated'. To be used for processed/calculated data"""
-    def __init__(self, *args, axes=[],  **kwargs):
+    """Specialized DataWithAxes set with source as 'calculated'. To be used for
+    processed/calculated data"""
+    def __init__(self, name: str,
+                 dim: DataDim = None,
+                 distribution: DataDistribution = DataDistribution.uniform,
+                 data: List[np.ndarray] = None,
+                 labels: List[str] = None, origin: str = '',
+                 units: str = '',
+                 axes: List[Axis] = [],
+                 nav_indexes: Tuple[int] = (),
+                 errors: Iterable[np.ndarray] = None,
+                 **kwargs):
+
         if 'source' in kwargs:
             kwargs.pop('source')
-        super().__init__(*args, source=DataSource['calculated'], axes=axes, **kwargs)
+        super().__init__(name, source=DataSource.calculated,
+                         dim=dim,
+                         distribution=distribution,
+                         data=data,
+                         labels=labels,
+                         origin=origin,
+                         units=units,
+                         axes=axes,
+                         nav_indexes=nav_indexes,
+                         errors=errors,
+                         **kwargs)
 
 
 class DataFromRoi(DataCalculated):
-    """Specialized DataWithAxes set with source as 'calculated'.To be used for processed data from region of interest"""
-    def __init__(self, *args, axes=[], **kwargs):
-        super().__init__(*args, axes=axes, **kwargs)
+    """Specialized DataWithAxes set with source as 'calculated'.
+    To be used for processed data from region of interest"""
+    def __init__(self, name: str,
+                 dim: DataDim = None,
+                 distribution: DataDistribution = DataDistribution.uniform,
+                 data: List[np.ndarray] = None,
+                 labels: List[str] = None, origin: str = '',
+                 units: str = '',
+                 axes: List[Axis] = [],
+                 nav_indexes: Tuple[int] = (),
+                 errors: Iterable[np.ndarray] = None,
+                 **kwargs):
+
+        super().__init__(name, source=DataSource.calculated,
+                         dim=dim,
+                         distribution=distribution,
+                         data=data,
+                         labels=labels,
+                         origin=origin,
+                         units=units,
+                         axes=axes,
+                         nav_indexes=nav_indexes,
+                         errors=errors,
+                         **kwargs)
 
 
 class DataToExport(DataLowLevel):
