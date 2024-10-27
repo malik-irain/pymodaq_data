@@ -774,6 +774,13 @@ class DataBase(DataLowLevel, NDArrayOperatorsMixin):
         """ Change immediately the units to whatever else. Use this with care!"""
         self._units = units
 
+    def to_base_units(self):
+        dwa = self.deepcopy()
+        data_quantities = [quantity.to_base_units() for quantity in self.quantities]
+        dwa.data = [quantity.magnitude for quantity in data_quantities]
+        dwa.force_units(str(data_quantities[0].units))
+        return dwa
+
     def value(self, units: str = None) -> float:
         """Returns the underlying float value (of the first elt in the data list) if this data
         holds only a float otherwise returns a mean of the underlying data
