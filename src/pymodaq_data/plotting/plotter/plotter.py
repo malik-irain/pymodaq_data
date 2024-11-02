@@ -54,6 +54,10 @@ class PlotterBase(metaclass=ABCMeta):
 class PlotterFactory(ObjectFactory):
     """Factory class registering and storing interactive plotter"""
 
+    def __init__(self):
+        if PlotterFactory.__name__ not in PlotterFactory._builders:
+            PlotterFactory._builders[PlotterFactory.__name__] = {}
+
     @classmethod
     def register(cls) -> Callable:
         """ To be used as a decorator
