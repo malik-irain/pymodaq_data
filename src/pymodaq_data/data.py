@@ -3126,14 +3126,14 @@ class DataToExport(DataLowLevel):
     def remove(self, dwa: DataWithAxes):
         """ Use the DataWithAxes object comparison __eq__ to retrieve the elt to remove
 
-        If strict is True will also check for the real type and name of the object
-
         Parameters
         ----------
+        dwa: DataWithAxes
+            The da to remove from the list
         """
-        for dwa_tmp in self:
+        for ind, dwa_tmp in enumerate(self):
             if dwa_tmp == dwa and dwa_tmp.name == dwa.name:
-                return dwa_tmp
+                return self.data.pop(ind)
         raise ValueError()
 
     @property
