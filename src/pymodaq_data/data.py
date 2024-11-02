@@ -101,6 +101,7 @@ class DataUnitError(Exception):
 
 
 class DwaType(BaseEnum):
+    """Different types of `DataWithAxes`."""
     DataWithAxes = 0
     DataRaw = 1
     DataActuator = 2
@@ -912,7 +913,7 @@ class DataBase(DataLowLevel, NDArrayOperatorsMixin):
 
     def _comparison_common(self, other, operator='__eq__'):
         if isinstance(other, DataBase):
-            if not (# no more checking for name equality
+            if not (# no more checking for name equality but take care ot the pop/remove methods
                     len(self) == len(other) and
                     Unit(self.units).is_compatible_with(other.units)):
                 return False
@@ -1937,7 +1938,7 @@ class DataWithAxes(DataBase):
         is_equal = super().__eq__(other)
         if not is_equal:
             return is_equal
-        if isinstance(other, DataWithAxes):
+        if isinstance(other, self.__class__):
             for ind in list(self.nav_indexes) + list(self.sig_indexes):
                 axes_self = self.get_axis_from_index(ind)
                 axes_other = other.get_axis_from_index(ind)
@@ -3123,7 +3124,17 @@ class DataToExport(DataLowLevel):
         return self.data.pop(index)
 
     def remove(self, dwa: DataWithAxes):
-        return self.pop(self.data.index(dwa))
+        """ Use the DataWithAxes object comparison __eq__ to retrieve the elt to remove
+
+        If strict is True will also check for the real type and name of the object
+
+        Parameters
+        ----------
+        """
+        for dwa_tmp in self:
+            if dwa_tmp == dwa and dwa_tmp.name == dwa.name:
+                return dwa_tmp
+        raise ValueError()
 
     @property
     def data(self) -> List[DataWithAxes]:
