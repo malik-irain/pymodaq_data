@@ -28,12 +28,15 @@ from pymodaq_utils.enums import BaseEnum, enum_checker
 from pymodaq_utils.warnings import deprecation_msg
 from pymodaq_utils.utils import find_objects_in_list_from_attr_name_val
 from pymodaq_utils.logger import set_logger, get_module_name
-from pymodaq_data.slicing import SpecialSlicersData
+
 from pymodaq_utils import math_utils as mutils
 from pymodaq_utils.config import Config
+
 from pymodaq_data.plotting.plotter.plotter import PlotterFactory
 from pymodaq_data.numpy_func import HANDLED_FUNCTIONS, HANDLED_UFUNCS, process_arguments_for_ufuncs
 from pymodaq_data import Q_, ureg, Unit
+from pymodaq_data.slicing import SpecialSlicersData
+from pymodaq_data.serialize.factory import SerializableFactory
 
 config = Config()
 plotter_factory = PlotterFactory()
@@ -210,6 +213,10 @@ class Axis:
 
     base_type = 'Axis'
 
+    def __new__(cls, *args, **kwargs):
+        SerializableFactory.register_from_type(cls, cls.serialize)
+        return super().__new__(cls)
+
     def __init__(self, label: str = '', units: str = '', data: np.ndarray = None, index: int = 0,
                  scaling=None, offset=None, size=None, spread_order: int = 0):
         super().__init__()
@@ -232,6 +239,42 @@ class Axis:
         self.spread_order = spread_order
         if (scaling is None or offset is None or size is None) and data is not None:
             self.get_scale_offset_from_data(data)
+
+    @staticmethod
+    def serialize(axis: Axis):
+        """ Convert an Axis object into a bytes message together with the info to convert it back
+
+        Parameters
+        ----------
+        axis: Axis
+
+        Returns
+        -------
+        bytes: the total bytes message to serialize the Axis
+
+        Notes
+        -----
+
+        The bytes sequence is constructed as:
+
+        * serialize the type: 'Axis'
+        * serialize the axis label
+        * serialize the axis units
+        * serialize the axis array
+        * serialize the axis
+        * serialize the axis spread_order
+        """
+        if not isinstance(axis, Axis):
+            raise TypeError(f'{axis} should be a list, not a {type(axis)}')
+
+        bytes_string = b''
+        bytes_string += SerializableFactory.get_apply_serializer(axis.__class__.__name__)
+        bytes_string += SerializableFactory.get_apply_serializer(axis.label)
+        bytes_string += SerializableFactory.get_apply_serializer(axis.units)
+        bytes_string += SerializableFactory.get_apply_serializer(axis.get_data())
+        bytes_string += SerializableFactory.get_apply_serializer(axis.index)
+        bytes_string += SerializableFactory.get_apply_serializer(axis.spread_order)
+        return bytes_string
 
     @staticmethod
     def from_quantity(quantity: Q_[np.ndarray], label='axis', index=0) -> Axis:
@@ -1797,6 +1840,10 @@ class DataWithAxes(DataBase):
         The list should match the length of the data attribute while the ndarrays
         should match the data ndarray
     """
+    def __new__(cls, *args, **kwargs):
+        SerializableFactory.register_from_type(cls, cls.serialize) #implement
+        # serialization/deserialization to all subtypes of DataBase
+        return super().__new__(cls)
 
     def __init__(self, name: str,
                  source: DataSource = None, dim: DataDim = None,
@@ -1842,6 +1889,65 @@ class DataWithAxes(DataBase):
         self.get_dim_from_data_axes()  # in DataBase, dim is processed from the shape of data, but if axes are provided
         #then use get_dim_from axes
         self._check_errors(errors)
+
+    @staticmethod
+    def serialize(dwa: DataWithAxes):
+        """ Convert a DataWithAxes into a bytes string
+
+        Parameters
+        ----------
+        data_base: DataWithAxes
+
+        Returns
+        -------
+        bytes: the total bytes message to serialize the DataWithAxes
+
+        Notes
+        -----
+        The bytes sequence is constructed as:
+
+        * serialize the string type: 'DataWithAxes'
+        * serialize the timestamp: float
+        * serialize the name
+        * serialize the source enum as a string
+        * serialize the dim enum as a string
+        * serialize the distribution enum as a string
+        * serialize the list of numpy arrays
+        * serialize the list of labels
+        * serialize the origin
+        * serialize the nav_index tuple as a list of int
+        * serialize the list of axis
+        * serialize the errors attributes (None or list(np.ndarray))
+        * serialize the list of names of extra attributes
+        * serialize the extra attributes
+        """
+
+        bytes_string = b''
+        bytes_string += SerializableFactory.get_apply_serializer(dwa.__class__.__name__)
+        bytes_string += SerializableFactory.get_apply_serializer(dwa.timestamp)
+        bytes_string += SerializableFactory.get_apply_serializer(dwa.name)
+        bytes_string += SerializableFactory.get_apply_serializer(dwa.source.name)
+        bytes_string += SerializableFactory.get_apply_serializer(dwa.dim.name)
+        bytes_string += SerializableFactory.get_apply_serializer(dwa.distribution.name)
+        bytes_string += SerializableFactory.get_apply_serializer(dwa.data)
+        bytes_string += SerializableFactory.get_apply_serializer(dwa.units)
+        bytes_string += SerializableFactory.get_apply_serializer(dwa.labels)
+        bytes_string += SerializableFactory.get_apply_serializer(dwa.origin)
+        bytes_string += SerializableFactory.get_apply_serializer(list(dwa.nav_indexes))
+        bytes_string += SerializableFactory.get_apply_serializer(dwa.axes)
+        if dwa.errors is None:
+            errors = []  # have to use this extra attribute as if I force dwa.errors = [], it will be
+            # internally modified as None again
+        else:
+            errors = dwa.errors
+        bytes_string += SerializableFactory.get_apply_serializer(errors)
+        bytes_string += SerializableFactory.get_apply_serializer(dwa.extra_attributes)
+        for attribute in dwa.extra_attributes:
+            bytes_string += SerializableFactory.get_apply_serializer(
+                getattr(dwa, attribute).__class__.__name__)
+            bytes_string += SerializableFactory.get_apply_serializer(
+                getattr(dwa, attribute))
+        return bytes_string
 
     def check_axes_linear(self, axes: List[Axis] = None) -> bool:
         """ Check if any axis may be non linear
@@ -2717,6 +2823,10 @@ class DataToExport(DataLowLevel):
     timestamp
     data
     """
+    def __new__(cls, *args, **kwargs):
+        SerializableFactory.register_from_type(cls, cls.serialize) #implement
+        # serialization/deserialization to all subtypes of DataBase
+        return super().__new__(cls)
 
     def __init__(self, name: str, data: List[DataWithAxes] = [], **kwargs):
         """
@@ -2735,6 +2845,34 @@ class DataToExport(DataLowLevel):
         self.data = data
         for key in kwargs:
             setattr(self, key, kwargs[key])
+
+    @staticmethod
+    def serialize(dte: DataToExport):
+        """ Convert a DataToExport into a bytes string
+
+        Parameters
+        ----------
+        dte: DataToExport
+
+        Returns
+        -------
+        bytes: the total bytes message to serialize the DataToExport
+
+        Notes
+        -----
+        The bytes sequence is constructed as:
+
+        * serialize the string type: 'DataToExport'
+        * serialize the timestamp: float
+        * serialize the name
+        * serialize the list of DataWithAxes
+        """
+        bytes_string = b''
+        bytes_string += SerializableFactory.get_apply_serializer(dte.__class__.__name__)
+        bytes_string += SerializableFactory.get_apply_serializer(dte.timestamp)
+        bytes_string += SerializableFactory.get_apply_serializer(dte.name)
+        bytes_string += SerializableFactory.get_apply_serializer(dte.data)
+        return bytes_string
 
     def plot(self, plotter_backend: str = config('plotting', 'backend'), *args, **kwargs):
         """ Call a plotter factory and its plot method over the actual data"""
