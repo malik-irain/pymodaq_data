@@ -268,7 +268,6 @@ class Axis:
             raise TypeError(f'{axis} should be a list, not a {type(axis)}')
 
         bytes_string = b''
-        bytes_string += SerializableFactory.get_apply_serializer(axis.__class__.__name__)
         bytes_string += SerializableFactory.get_apply_serializer(axis.label)
         bytes_string += SerializableFactory.get_apply_serializer(axis.units)
         bytes_string += SerializableFactory.get_apply_serializer(axis.get_data())
@@ -1923,7 +1922,6 @@ class DataWithAxes(DataBase):
         """
 
         bytes_string = b''
-        bytes_string += SerializableFactory.get_apply_serializer(dwa.__class__.__name__)
         bytes_string += SerializableFactory.get_apply_serializer(dwa.timestamp)
         bytes_string += SerializableFactory.get_apply_serializer(dwa.name)
         bytes_string += SerializableFactory.get_apply_serializer(dwa.source.name)
@@ -1943,8 +1941,6 @@ class DataWithAxes(DataBase):
         bytes_string += SerializableFactory.get_apply_serializer(errors)
         bytes_string += SerializableFactory.get_apply_serializer(dwa.extra_attributes)
         for attribute in dwa.extra_attributes:
-            bytes_string += SerializableFactory.get_apply_serializer(
-                getattr(dwa, attribute).__class__.__name__)
             bytes_string += SerializableFactory.get_apply_serializer(
                 getattr(dwa, attribute))
         return bytes_string
