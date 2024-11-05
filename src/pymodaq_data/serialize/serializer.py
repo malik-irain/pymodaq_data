@@ -232,13 +232,14 @@ class ListSerializeDeserialize:
 
     @staticmethod
     def deserialize(bytes_str: bytes) -> Tuple[List[Any], bytes]:
-        """Convert bytes into a list of homogeneous objects
+        """Convert bytes into a list of objects
 
         Convert the first bytes into a list reading first information about the list elt types, length ...
 
         Returns
         -------
         list: the decoded list
+        bytes: the remaining bytes string if any
         """
         list_obj = []
         list_len, remaining_bytes = utils.get_int_from_bytes(bytes_str)
@@ -412,12 +413,7 @@ class DeSerializer:
     def from_b64_string(cls, b64_string: Union[bytes, str]) -> "DeSerializer":
         return cls(b64decode(b64_string))
 
-    def parameter_deserialization(self) -> putils.ParameterWithPath:
-        path = self.list_deserialization()
-        param_as_xml = self.string_deserialization()
-        param_dict = ioxml.XML_string_to_parameter(param_as_xml)
-        param_obj = Parameter(**param_dict[0])
-        return putils.ParameterWithPath(param_obj, path)
+
 
     def axis_deserialization(self) -> Axis:
         """Convert bytes into an Axis object

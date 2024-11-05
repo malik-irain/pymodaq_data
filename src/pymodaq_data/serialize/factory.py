@@ -25,7 +25,7 @@ class SerializableBase(metaclass=ABCMeta):
     @staticmethod
     @abstractmethod
     def deserialize(bytes_str: bytes) -> Tuple[Any, bytes]:
-        "implementation of the serialization into bytes"
+        "implementation of the deserialization from bytes"
         ...
 
 
@@ -75,10 +75,13 @@ class SerializableFactory:
         """
 
         def inner_wrapper(wrapped_class: type(SerializableBase)) -> Callable:
-            cls.register_from_type(wrapped_class, wrapped_class.serialize)
+            cls.register_from_type(wrapped_class,
+                                   wrapped_class.serialize,
+                                   wrapped_class.deserialize)
 
             # Return wrapped_class
             return wrapped_class
+        return inner_wrapper
 
     @classmethod
     def register_from_type(cls, obj_type: type, serialize_method: Callable,
