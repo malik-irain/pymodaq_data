@@ -7,7 +7,7 @@ Created the 20/10/2023
 from base64 import b64encode, b64decode
 from enum import Enum
 import numbers
-from typing import Optional, Tuple, List, Union, TYPE_CHECKING
+from typing import Optional, Tuple, List, Union, TYPE_CHECKING, Any
 
 import numpy as np
 from pymodaq.utils import data as data_mod
@@ -16,199 +16,255 @@ from pymodaq_data.data import DataWithAxes, DataToExport, Axis, DwaType
 from pymodaq_gui.parameter import Parameter, utils as putils, ioxml
 
 import pymodaq.utils.data as data_mod_pymodaq
-from ..serialize.factory import SerializableFactory, SerializableBase
+from . import utils
+from ..serialize.factory import SerializableFactory
 
 if TYPE_CHECKING:
     from pymodaq.utils.tcp_ip.mysocket import Socket
 
 
-class BaseSerializer:
-    """ Basic functionalities to serialize objects"""
-
-    def __init__(self):
-        self._bytes_string = b''
+class StringSerializeDeserialize:
 
     @staticmethod
-    def int_to_bytes(an_integer: int) -> bytes:
-        """Convert an unsigned integer into a byte array of length 4 in big endian
+    def serialize(string: str) -> bytes:
+        """ Convert a string into a bytes message together with the info to convert it back
 
         Parameters
         ----------
-        an_integer: int
+        string: str
 
         Returns
         -------
-        bytearray
+        bytes: the total bytes message to serialize the string
         """
-        if not isinstance(an_integer, int):
-            raise TypeError(f'{an_integer} should be an integer, not a {type(an_integer)}')
-        elif an_integer < 0:
-            raise ValueError('Can only serialize unsigned integer using this method')
-        return an_integer.to_bytes(4, 'big')
+        bytes_string = b''
+        cmd_bytes, cmd_length_bytes = utils.str_len_to_bytes(string)
+        bytes_string += cmd_length_bytes
+        bytes_string += cmd_bytes
+        return bytes_string
 
     @staticmethod
-    def str_to_bytes(message: str) -> bytes:
-        if not isinstance(message, str):
-            raise TypeError('Can only serialize str object using this method')
-        return message.encode()
+    def deserialize(bytes_str) -> Tuple[str, bytes]:
+        """Convert bytes into a str object
 
-    @classmethod
-    def str_len_to_bytes(cls, message: Union[str, bytes]) -> Tuple[bytes, bytes]:
-        """ Convert a string and its length to two bytes
-        Parameters
-        ----------
-        message: str
-            the message to convert
+        Convert first the fourth first bytes into an int encoding the length of the string to decode
 
         Returns
         -------
-        bytes: message converted as a byte array
-        bytes: length of the message byte array, itself as a byte array of length 4
+        str: the decoded string
+        bytes: the remaining bytes string if any
         """
-
-        if not isinstance(message, str) and not isinstance(message, bytes):
-            message = str(message)
-        if not isinstance(message, bytes):
-            message = cls.str_to_bytes(message)
-        return message, cls.int_to_bytes(len(message))
+        string_len, remaining_bytes = utils.get_int_from_bytes(bytes_str)
+        str_bytes,  remaining_bytes = utils.split_nbytes(remaining_bytes, string_len)
+        str_obj = utils.bytes_to_string(str_bytes)
+        return str_obj, remaining_bytes
 
 
-def bytes_serialize(some_bytes: bytes) -> bytes:
-    bytes_string = b''
-    bytes_string += BaseSerializer.int_to_bytes(len(some_bytes))
-    bytes_string += some_bytes
-    return bytes_string
+class BytesSerializeDeserialize:
+    @staticmethod
+    def serialize(some_bytes: bytes) -> bytes:
+        bytes_string = b''
+        bytes_string += utils.int_to_bytes(len(some_bytes))
+        bytes_string += some_bytes
+        return bytes_string
+
+    @staticmethod
+    def deserialize(bytes_str: bytes) -> Tuple[bytes, bytes]:
+        bytes_len, remaining_bytes = utils.get_int_from_bytes(bytes_str)
+        bytes_str, remaining_bytes = utils.split_nbytes(remaining_bytes, bytes_len)
+        return bytes_str, remaining_bytes
 
 
-def string_serialize(string: str) -> bytes:
-    """ Convert a string into a bytes message together with the info to convert it back
+class ScalarSerializeDeserialize:
+    @staticmethod
+    def serialize(scalar: complex) -> bytes:
+        """ Convert a scalar into a bytes message together with the info to convert it back
 
-    Parameters
-    ----------
-    string: str
+        Parameters
+        ----------
+        scalar: A python number (complex or subtypes like float and int)
 
-    Returns
-    -------
-    bytes: the total bytes message to serialize the string
-    """
-    bytes_string = b''
-    cmd_bytes, cmd_length_bytes = BaseSerializer.str_len_to_bytes(string)
-    bytes_string += cmd_length_bytes
-    bytes_string += cmd_bytes
-    return bytes_string
+        Returns
+        -------
+        bytes: the total bytes message to serialize the scalar
+        """
+        if not isinstance(scalar, numbers.Number):
+            # type hint is complex, instance comparison Number
+            raise TypeError(f'{scalar} should be an integer or a float, not a {type(scalar)}')
+        scalar_array = np.array([scalar])
+        data_type = scalar_array.dtype.descr[0][1]
+        data_bytes = scalar_array.tobytes()
 
+        bytes_string = b''
+        bytes_string += StringSerializeDeserialize.string_serialize(data_type)
+        bytes_string += utils.int_to_bytes(len(data_bytes))
+        bytes_string += data_bytes
+        return bytes_string
 
-def scalar_serialize(scalar: complex) -> bytes:
-    """ Convert a scalar into a bytes message together with the info to convert it back
+    @staticmethod
+    def deserialize(bytes_str: bytes) -> Tuple[complex, bytes]:
+        """Convert bytes into a python object of type (float, int, complex or boolean)
 
-    Parameters
-    ----------
-    scalar: A python number (complex or subtypes like float and int)
+        Get first the data type from a string deserialization, then the data length and finally convert this
+        length of bytes into an object of type (float, int, complex or boolean)
 
-    Returns
-    -------
-    bytes: the total bytes message to serialize the scalar
-    """
-    if not isinstance(scalar, numbers.Number):
-        # type hint is complex, instance comparison Number
-        raise TypeError(f'{scalar} should be an integer or a float, not a {type(scalar)}')
-    scalar_array = np.array([scalar])
-    data_type = scalar_array.dtype.descr[0][1]
-    data_bytes = scalar_array.tobytes()
-
-    bytes_string = b''
-    bytes_string += string_serialize(data_type)
-    bytes_string += BaseSerializer.int_to_bytes(len(data_bytes))
-    bytes_string += data_bytes
-    return bytes_string
-
-
-def ndarray_serialize(array: np.ndarray) -> bytes:
-    """ Convert a ndarray into a bytes message together with the info to convert it back
-
-    Parameters
-    ----------
-    array: np.ndarray
-
-    Returns
-    -------
-    bytes: the total bytes message to serialize the scalar
-
-    Notes
-    -----
-
-    The bytes sequence is constructed as:
-
-    * get data type as a string
-    * reshape array as 1D array and get the array dimensionality (len of array's shape)
-    * convert Data array as bytes
-    * serialize data type
-    * serialize data length
-    * serialize data shape length
-    * serialize all values of the shape as integers converted to bytes
-    * serialize array as bytes
-    """
-    if not isinstance(array, np.ndarray):
-        raise TypeError(f'{array} should be an numpy array, not a {type(array)}')
-    array_type = array.dtype.descr[0][1]
-    array_shape = array.shape
-
-    array = array.reshape(array.size)
-    array_bytes = array.tobytes()
-    bytes_string = b''
-    bytes_string += string_serialize(array_type)
-    bytes_string += BaseSerializer.int_to_bytes(len(array_bytes))
-    bytes_string += BaseSerializer.int_to_bytes(len(array_shape))
-    for shape_elt in array_shape:
-        bytes_string += BaseSerializer.int_to_bytes(shape_elt)
-    bytes_string += array_bytes
-    return bytes_string
+        Returns
+        -------
+        numbers.Number: the decoded number
+        bytes: the remaining bytes string if any
+        """
+        data_type, remaining_bytes = StringSerializeDeserialize.string_deserialize(bytes_str)
+        data_len, remaining_bytes = utils.get_int_from_bytes(remaining_bytes)
+        number_bytes, remaining_bytes = utils.split_nbytes(remaining_bytes, data_len)
+        number = np.frombuffer(number_bytes, dtype=data_type)[0]
+        if 'f' in data_type:
+            number = float(number)  # because one get numpy float type
+        elif 'i' in data_type:
+            number = int(number)  # because one get numpy int type
+        elif 'c' in data_type:
+            number = complex(number)  # because one get numpy complex type
+        elif 'b' in data_type:
+            number = bool(number)  # because one get numpy complex type
+        return number, remaining_bytes
 
 
-def list_serialize(self, list_object: List) -> bytes:
-    """ Convert a list of objects into a bytes message together with the info to convert it back
+class NdArraySerializeDeserialize:
 
-    Parameters
-    ----------
-    list_object: list
-        the list could contains either scalars, strings or ndarrays or Axis objects or DataWithAxis objects
-        module
+    @staticmethod
+    def serialize(array: np.ndarray) -> bytes:
+        """ Convert a ndarray into a bytes message together with the info to convert it back
 
-    Returns
-    -------
-    bytes: the total bytes message to serialize the list of objects
+        Parameters
+        ----------
+        array: np.ndarray
 
-    Notes
-    -----
+        Returns
+        -------
+        bytes: the total bytes message to serialize the scalar
 
-    The bytes sequence is constructed as:
-    * the length of the list
+        Notes
+        -----
 
-    Then for each object:
+        The bytes sequence is constructed as:
 
-    * get data type as a string
-    * use the serialization method adapted to each object in the list
-    """
-    if not isinstance(list_object, list):
-        raise TypeError(f'{list_object} should be a list, not a {type(list_object)}')
+        * get data type as a string
+        * reshape array as 1D array and get the array dimensionality (len of array's shape)
+        * convert Data array as bytes
+        * serialize data type
+        * serialize data length
+        * serialize data shape length
+        * serialize all values of the shape as integers converted to bytes
+        * serialize array as bytes
+        """
+        if not isinstance(array, np.ndarray):
+            raise TypeError(f'{array} should be an numpy array, not a {type(array)}')
+        array_type = array.dtype.descr[0][1]
+        array_shape = array.shape
 
-    bytes_string = b''
+        array = array.reshape(array.size)
+        array_bytes = array.tobytes()
+        bytes_string = b''
+        bytes_string += StringSerializeDeserialize.string_serialize(array_type)
+        bytes_string += utils.int_to_bytes(len(array_bytes))
+        bytes_string += utils.int_to_bytes(len(array_shape))
+        for shape_elt in array_shape:
+            bytes_string += utils.int_to_bytes(shape_elt)
+        bytes_string += array_bytes
+        return bytes_string
 
-    bytes_string += BaseSerializer.int_to_bytes(len(list_object))
-    for obj in list_object:
-        bytes_string += string_serialize(obj.__class__.__name__)
-        bytes_string += SerializableFactory.get_apply_serializer(obj)
-    self._bytes_string += bytes_string
-    return bytes_string
+    @staticmethod
+    def deserialize(bytes_str: bytes) -> Tuple[np.ndarray, bytes]:
+        """Convert bytes into a numpy ndarray object
+
+        Convert the first bytes into a ndarray reading first information about the array's data
+
+        Returns
+        -------
+        ndarray: the decoded numpy array
+        bytes: the remaining bytes string if any
+        """
+        ndarray_type, remaining_bytes = StringSerializeDeserialize.string_deserialize(bytes_str)
+        ndarray_len, remaining_bytes = utils.get_int_from_bytes(remaining_bytes)
+        shape_len, remaining_bytes = utils.get_int_from_bytes(remaining_bytes)
+        shape = []
+        for ind in range(shape_len):
+            shape_elt, remaining_bytes = utils.get_int_from_bytes(remaining_bytes)
+            shape.append(shape_elt)
+
+        ndarray_bytes, remaining_bytes = utils.split_nbytes(remaining_bytes, ndarray_len)
+        ndarray = np.frombuffer(ndarray_bytes, dtype=ndarray_type)
+        ndarray = ndarray.reshape(tuple(shape))
+        ndarray = np.atleast_1d(ndarray)  # remove singleton dimensions
+        return ndarray, remaining_bytes
 
 
-SerializableFactory.register_from_type(bytes, bytes_serialize)
-SerializableFactory.register_from_type(str, string_serialize)
-SerializableFactory.register_from_type(int, scalar_serialize)
-SerializableFactory.register_from_type(float, scalar_serialize)
-SerializableFactory.register_from_obj(1 + 1j, scalar_serialize)
-SerializableFactory.register_from_type(bool, scalar_serialize)
-SerializableFactory.register_from_type(np.ndarray, ndarray_serialize)
+class ListSerializeDeserialize:
+    @staticmethod
+    def serialize(list_object: List) -> bytes:
+        """ Convert a list of objects into a bytes message together with the info to convert it back
+
+        Parameters
+        ----------
+        list_object: list
+            the list could contain whatever objects are registered in the SerializableFactory
+
+        Returns
+        -------
+        bytes: the total bytes message to serialize the list of objects
+
+        Notes
+        -----
+
+        The bytes sequence is constructed as:
+        * the length of the list
+
+        Then for each object:
+        * use the serialization method adapted to each object in the list
+        """
+        if not isinstance(list_object, list):
+            raise TypeError(f'{list_object} should be a list, not a {type(list_object)}')
+
+        bytes_string = b''
+        bytes_string += utils.int_to_bytes(len(list_object))
+        for obj in list_object:
+            bytes_string += SerializableFactory.get_apply_serializer(obj)
+        return bytes_string
+
+    @staticmethod
+    def deserialize(bytes_str: bytes) -> Tuple[List[Any], bytes]:
+        """Convert bytes into a list of homogeneous objects
+
+        Convert the first bytes into a list reading first information about the list elt types, length ...
+
+        Returns
+        -------
+        list: the decoded list
+        """
+        list_obj = []
+        list_len, remaining_bytes = utils.get_int_from_bytes(bytes_str)
+
+        for ind in range(list_len):
+            obj, remaining_bytes = SerializableFactory.get_apply_deserializer(remaining_bytes)
+            list_obj.append(obj)
+        return list_obj, remaining_bytes
+
+
+SerializableFactory.register_from_type(bytes,
+                                       BytesSerializeDeserialize.serialize,
+                                       BytesSerializeDeserialize.deserialize)
+SerializableFactory.register_from_type(str, StringSerializeDeserialize.serialize,
+                                       StringSerializeDeserialize.deserialize)
+SerializableFactory.register_from_type(int, ScalarSerializeDeserialize.serialize,
+                                       ScalarSerializeDeserialize.deserialize)
+SerializableFactory.register_from_type(float, ScalarSerializeDeserialize.serialize,
+                                       ScalarSerializeDeserialize.deserialize)
+SerializableFactory.register_from_obj(1 + 1j, ScalarSerializeDeserialize.serialize,
+                                      ScalarSerializeDeserialize.deserialize)
+SerializableFactory.register_from_type(bool, ScalarSerializeDeserialize.serialize,
+                                       ScalarSerializeDeserialize.deserialize)
+SerializableFactory.register_from_obj(np.array([0, 1]),
+                                      NdArraySerializeDeserialize.serialize,
+                                      NdArraySerializeDeserialize.deserialize)
 
 SERIALIZABLE = Union[
     # native
@@ -294,12 +350,12 @@ class SocketString:
         return self.check_received_length(length)
 
 
-class Serializer(BaseSerializer):
+class Serializer:
     """Used to Serialize to bytes python objects, numpy arrays and PyMoDAQ DataWithAxes and
     DataToExport objects"""
 
     def __init__(self, obj: Optional[SERIALIZABLE] = None) -> None:
-        super().__init__()
+        self._bytes_string = b''
         self._obj = obj
 
     def to_bytes(self):
@@ -323,50 +379,6 @@ class Serializer(BaseSerializer):
         b = self.to_bytes()
         return b64encode(b).decode()
 
-    def type_and_object_serialization(self, obj: Optional[SERIALIZABLE] = None) -> bytes:
-        """Serialize an object with its type, such that it can be retrieved by
-        `DeSerializer.type_and_object_deserialization`.
-        """
-
-        if obj is None and self._obj is not None:
-            obj = self._obj
-
-        bytes_string = b''
-        bytes_string += SerializableFactory.get_apply_serializer(obj.__class__.__name__)
-        bytes_string += SerializableFactory.get_apply_serializer(obj)
-        return bytes_string
-
-    def dte_serialization(self, dte: DataToExport) -> bytes:
-        """ Convert a DataToExport into a bytes string
-
-        Parameters
-        ----------
-        dte: DataToExport
-
-        Returns
-        -------
-        bytes: the total bytes message to serialize the DataToExport
-
-        Notes
-        -----
-        The bytes sequence is constructed as:
-
-        * serialize the string type: 'DataToExport'
-        * serialize the timestamp: float
-        * serialize the name
-        * serialize the list of DataWithAxes
-        """
-        if not isinstance(dte, DataToExport):
-            raise TypeError(f'{dte} should be a DataToExport, not a {type(dte)}')
-
-        bytes_string = b''
-        bytes_string += self.object_type_serialization(dte)
-        bytes_string += self.scalar_serialization(dte.timestamp)
-        bytes_string += self.string_serialization(dte.name)
-        bytes_string += self.list_serialization(dte.data)
-        self._bytes_string += bytes_string
-        return bytes_string
-
 
 class DeSerializer:
     """Used to DeSerialize bytes to python objects, numpy arrays and PyMoDAQ Axis, DataWithAxes and DataToExport
@@ -389,55 +401,6 @@ class DeSerializer:
             bytes_string = SocketString(bytes_string)
         self._bytes_string = bytes_string
 
-    @classmethod
-    def from_b64_string(cls, b64_string: Union[bytes, str]) -> "DeSerializer":
-        return cls(b64decode(b64_string))
-
-    @staticmethod
-    def bytes_to_string(message: bytes) -> str:
-        return message.decode()
-
-    @staticmethod
-    def bytes_to_int(bytes_string: bytes) -> int:
-        """Convert a bytes of length 4 into an integer"""
-        if not isinstance(bytes_string, bytes):
-            raise TypeError(f'{bytes_string} should be an bytes string, not a {type(bytes_string)}')
-        assert len(bytes_string) == 4
-        return int.from_bytes(bytes_string, 'big')
-
-    @staticmethod
-    def bytes_to_scalar(data: bytes, dtype: np.dtype) -> complex:
-        """Convert bytes to a scalar given a certain numpy dtype
-
-        Parameters
-        ----------
-        data: bytes
-        dtype:np.dtype
-
-        Returns
-        -------
-        numbers.Number
-        """
-        return np.frombuffer(data, dtype=dtype)[0]
-
-    @staticmethod
-    def bytes_to_nd_array(data: bytes, dtype: np.dtype, shape: Tuple[int]) -> np.ndarray:
-        """Convert bytes to a ndarray given a certain numpy dtype and shape
-
-        Parameters
-        ----------
-        data: bytes
-        dtype: np.dtype
-        shape: tuple of int
-
-        Returns
-        -------
-        np.ndarray
-        """
-        array = np.frombuffer(data, dtype=dtype)
-        array = array.reshape(tuple(shape))
-        array = np.atleast_1d(array)  # remove singleton dimensions but keeping ndarrays
-        return array
 
     def _int_deserialization(self) -> int:
         """Convert the fourth first bytes into an unsigned integer to be used internally. For integer serialization
@@ -445,130 +408,9 @@ class DeSerializer:
         int_obj = self.bytes_to_int(self._bytes_string.get_first_nbytes(4))
         return int_obj
 
-    def bytes_deserialization(self) -> bytes:
-        bstring_len = self._int_deserialization()
-        bstr = self._bytes_string.get_first_nbytes(bstring_len)
-        return bstr
-
-    def string_deserialization(self) -> str:
-        """Convert bytes into a str object
-
-        Convert first the fourth first bytes into an int encoding the length of the string to decode
-
-        Returns
-        -------
-        str: the decoded string
-        """
-        string_len = self._int_deserialization()
-        str_obj = self._bytes_string.get_first_nbytes(string_len).decode()
-        return str_obj
-
-    def scalar_deserialization(self) -> complex:
-        """Convert bytes into a python number object
-
-        Get first the data type from a string deserialization, then the data length and finally convert this
-        length of bytes into a number (float, int)
-
-        Returns
-        -------
-        numbers.Number: the decoded number
-        """
-        data_type = self.string_deserialization()
-        data_len = self._int_deserialization()
-        number = np.frombuffer(self._bytes_string.get_first_nbytes(data_len), dtype=data_type)[0]
-        if 'f' in data_type:
-            number = float(number)  # because one get numpy float type
-        elif 'i' in data_type:
-            number = int(number)  # because one get numpy int type
-        elif 'c' in data_type:
-            number = complex(number)  # because one get numpy complex type
-        return number
-
-    def boolean_deserialization(self) -> bool:
-        """Convert bytes into a boolean object
-
-        Get first the data type from a string deserialization, then the data length and finally
-        convert this length of bytes into a number (float, int) and cast it to a bool
-
-        Returns
-        -------
-        bool: the decoded boolean
-        """
-        number = self.scalar_deserialization()
-        return bool(number)
-
-    def ndarray_deserialization(self) -> np.ndarray:
-        """Convert bytes into a numpy ndarray object
-
-        Convert the first bytes into a ndarray reading first information about the array's data
-
-        Returns
-        -------
-        ndarray: the decoded numpy array
-        """
-        ndarray_type = self.string_deserialization()
-        ndarray_len = self._int_deserialization()
-        shape_len = self._int_deserialization()
-        shape = []
-        for ind in range(shape_len):
-            shape_elt = self._int_deserialization()
-            shape.append(shape_elt)
-
-        ndarray = np.frombuffer(self._bytes_string.get_first_nbytes(ndarray_len), dtype=ndarray_type)
-        ndarray = ndarray.reshape(tuple(shape))
-        ndarray = np.atleast_1d(ndarray)  # remove singleton dimensions
-        return ndarray
-
-    def type_and_object_deserialization(self) -> SERIALIZABLE:
-        """ Deserialize specific objects from their binary representation (inverse of `Serializer.type_and_object_serialization`).
-
-        See Also
-        --------
-        Serializer.dwa_serialization, Serializer.dte_serialization
-
-        """
-        obj_type = self.string_deserialization()
-        elt = None
-        if obj_type == SerializableTypes.SCALAR.value:
-            elt = self.scalar_deserialization()
-        elif obj_type == SerializableTypes.STRING.value:
-            elt = self.string_deserialization()
-        elif obj_type == SerializableTypes.BYTES.value:
-            elt = self.bytes_deserialization()
-        elif obj_type == SerializableTypes.ARRAY.value:
-            elt = self.ndarray_deserialization()
-        elif obj_type == SerializableTypes.DATA_WITH_AXES.value:
-            elt = self.dwa_deserialization()
-        elif obj_type == SerializableTypes.DATA_TO_EXPORT.value:
-            elt = self.dte_deserialization()
-        elif obj_type == SerializableTypes.AXIS.value:
-            elt = self.axis_deserialization()
-        elif obj_type == SerializableTypes.BOOL.value:
-            elt = self.boolean_deserialization()
-        elif obj_type == SerializableTypes.LIST.value:
-            elt = self.list_deserialization()
-        elif obj_type == SerializableTypes.PARAMETER.value:
-            elt = self.parameter_deserialization()
-        else:
-            print(f'invalid object type {obj_type}')
-            elt = None  # desired behavior?
-        return elt
-
-    def list_deserialization(self) -> list:
-        """Convert bytes into a list of homogeneous objects
-
-        Convert the first bytes into a list reading first information about the list elt types, length ...
-
-        Returns
-        -------
-        list: the decoded list
-        """
-        list_obj = []
-        list_len = self._int_deserialization()
-
-        for ind in range(list_len):
-            list_obj.append(self.type_and_object_deserialization())
-        return list_obj
+    @classmethod
+    def from_b64_string(cls, b64_string: Union[bytes, str]) -> "DeSerializer":
+        return cls(b64decode(b64_string))
 
     def parameter_deserialization(self) -> putils.ParameterWithPath:
         path = self.list_deserialization()
