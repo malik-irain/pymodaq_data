@@ -23,6 +23,9 @@ if TYPE_CHECKING:
     from pymodaq.utils.tcp_ip.mysocket import Socket
 
 
+ser_factory = SerializableFactory()
+
+
 class StringSerializeDeserialize:
 
     @staticmethod
@@ -227,7 +230,7 @@ class ListSerializeDeserialize:
         bytes_string = b''
         bytes_string += utils.int_to_bytes(len(list_object))
         for obj in list_object:
-            bytes_string += SerializableFactory.get_apply_serializer(obj)
+            bytes_string += ser_factory.get_apply_serializer(obj)
         return bytes_string
 
     @staticmethod
@@ -245,27 +248,30 @@ class ListSerializeDeserialize:
         list_len, remaining_bytes = utils.get_int_from_bytes(bytes_str)
 
         for ind in range(list_len):
-            obj, remaining_bytes = SerializableFactory.get_apply_deserializer(remaining_bytes)
+            obj, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes)
             list_obj.append(obj)
         return list_obj, remaining_bytes
 
 
-SerializableFactory.register_from_type(bytes,
+ser_factory.register_from_type(bytes,
                                        BytesSerializeDeserialize.serialize,
                                        BytesSerializeDeserialize.deserialize)
-SerializableFactory.register_from_type(str, StringSerializeDeserialize.serialize,
+ser_factory.register_from_type(str, StringSerializeDeserialize.serialize,
                                        StringSerializeDeserialize.deserialize)
-SerializableFactory.register_from_type(int, ScalarSerializeDeserialize.serialize,
+ser_factory.register_from_type(int, ScalarSerializeDeserialize.serialize,
                                        ScalarSerializeDeserialize.deserialize)
-SerializableFactory.register_from_type(float, ScalarSerializeDeserialize.serialize,
+ser_factory.register_from_type(float, ScalarSerializeDeserialize.serialize,
                                        ScalarSerializeDeserialize.deserialize)
-SerializableFactory.register_from_obj(1 + 1j, ScalarSerializeDeserialize.serialize,
+ser_factory.register_from_obj(1 + 1j, ScalarSerializeDeserialize.serialize,
                                       ScalarSerializeDeserialize.deserialize)
-SerializableFactory.register_from_type(bool, ScalarSerializeDeserialize.serialize,
+ser_factory.register_from_type(bool, ScalarSerializeDeserialize.serialize,
                                        ScalarSerializeDeserialize.deserialize)
-SerializableFactory.register_from_obj(np.array([0, 1]),
+ser_factory.register_from_obj(np.array([0, 1]),
                                       NdArraySerializeDeserialize.serialize,
                                       NdArraySerializeDeserialize.deserialize)
+ser_factory.register_from_type(list,
+                                       ListSerializeDeserialize.serialize,
+                                       ListSerializeDeserialize.deserialize)
 
 SERIALIZABLE = Union[
     # native
@@ -374,7 +380,7 @@ class Serializer:
         * :class:`list` of any objects above
 
         """
-        return SerializableFactory.get_apply_serializer(self._obj)
+        return ser_factory.get_apply_serializer(self._obj)
 
     def to_b64_string(self) -> str:
         b = self.to_bytes()
