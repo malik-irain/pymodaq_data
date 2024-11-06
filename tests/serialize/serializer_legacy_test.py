@@ -10,7 +10,7 @@ import pytest
 
 from pymodaq.utils import data as data_mod
 from pymodaq_data.data import Axis, DataToExport, DwaType
-from pymodaq_data.serialize.serializer import Serializer, DeSerializer
+from pymodaq_data.serialize.serializer_legacy import Serializer, DeSerializer
 from pymodaq.utils.parameter import Parameter, utils as putils
 
 LABEL = 'A Label'
@@ -65,7 +65,7 @@ def test_string_serialization_deserialization():
     ser = Serializer(string)
 
     bytes_string = ser.string_serialization(string)
-    assert len(bytes_string) == len(string) + 4
+    assert len(bytes_string) == len(string) + 4 + 4 + len('str') + 4
     deser = DeSerializer(bytes_string)
     assert deser.string_deserialization() == string
     assert ser.to_bytes() == bytes_string
@@ -104,7 +104,7 @@ def test_object_type_serialization(get_data):
     objects.extend(dte.get_data_from_dim('Data1D')[0].axes)
 
     for obj in objects:
-        assert ser.object_type_serialization(obj)[4:].decode() == obj.__class__.__name__
+        assert ser.object_type_serialization(obj)[11:].decode() == obj.__class__.__name__
 
 
 def test_axis_serialization_deserialization():
@@ -195,12 +195,12 @@ def test_base_64_de_serialization(get_data: DataToExport):
 class TestObjectSerializationDeSerialization:
 
     @pytest.mark.parametrize("obj, serialized", (
-        (True, b'\x00\x00\x00\x04bool\x00\x00\x00\x03|b1\x00\x00\x00\x01\x01'),
+        (True, b'\x00\x00\x00\x14\x00\x00\x00\x04bool\x00\x00\x00\x03|b1\x00\x00\x00\x01\x01'),
         # (123, b'\x00\x00\x00\x06scalar\x00\x00\x00\x03<i4\x00\x00\x00\x04{\x00\x00\x00'),  # it varies on different test machines
-        (10.45, b'\x00\x00\x00\x06scalar\x00\x00\x00\x03<f8\x00\x00\x00\x08fffff\xe6$@'),
-        (1 + 2j, b'\x00\x00\x00\x06scalar\x00\x00\x00\x04<c16\x00\x00\x00\x10\x00\x00\x00\x00\x00\x00\xf0?\x00\x00\x00\x00\x00\x00\x00@'),
-        ('hello world', b'\x00\x00\x00\x06string\x00\x00\x00\x0bhello world'),
-        (b'hello binary world', b'\x00\x00\x00\x05bytes\x00\x00\x00\x12hello binary world'),
+        (10.45, b'\x00\x00\x00\x1c\x00\x00\x00\x05float\x00\x00\x00\x03<f8\x00\x00\x00\x08fffff\xe6$@'),
+        (1 + 2j, b"\x00\x00\x00'\x00\x00\x00\x07complex\x00\x00\x00\x04<c16\x00\x00\x00\x10\x00\x00\x00\x00\x00\x00\xf0?\x00\x00\x00\x00\x00\x00\x00@"),
+        ('hello world', b'\x00\x00\x00\x16\x00\x00\x00\x03str\x00\x00\x00\x0bhello world'),
+        (b'hello binary world', b'\x00\x00\x00\x1f\x00\x00\x00\x05bytes\x00\x00\x00\x12hello binary world'),
     ))
     def test_serialization(self, obj, serialized):
         assert Serializer().type_and_object_serialization(obj) == serialized
@@ -209,10 +209,10 @@ class TestObjectSerializationDeSerialization:
 
     def test_array(self):
         obj = np.array([[0.1, 0.5], [5, 7], [8, 9]])
-        serialized = (b'\x00\x00\x00\x05array\x00\x00\x00\x03<f8\x00\x00\x000\x00\x00\x00\x02\x00'
-                      b'\x00\x00\x03\x00\x00\x00\x02\x9a\x99\x99\x99\x99\x99\xb9?\x00\x00\x00\x00'
-                      b'\x00\x00\xe0?\x00\x00\x00\x00\x00\x00\x14@\x00\x00\x00\x00\x00\x00\x1c@\x00'
-                      b'\x00\x00\x00\x00\x00 @\x00\x00\x00\x00\x00\x00"@')
+        serialized = (b'\x00\x00\x00R\x00\x00\x00\x07ndarray\x00\x00\x00\x03<f8\x00\x00\x000\x00'
+                      b'\x00\x00\x02\x00\x00\x00\x03\x00\x00\x00\x02\x9a\x99\x99\x99\x99\x99\xb9?'
+                      b'\x00\x00\x00\x00\x00\x00\xe0?\x00\x00\x00\x00\x00\x00\x14@\x00\x00\x00\x00'
+                      b'\x00\x00\x1c@\x00\x00\x00\x00\x00\x00 @\x00\x00\x00\x00\x00\x00"@')
 
         assert Serializer().type_and_object_serialization(obj) == serialized
         assert Serializer(obj).type_and_object_serialization() == serialized

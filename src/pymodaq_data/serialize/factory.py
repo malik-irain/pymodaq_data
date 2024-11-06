@@ -1,5 +1,6 @@
 from abc import ABCMeta, abstractmethod
-from typing import Callable, List, Any, Tuple
+from typing import Callable, List, Any, Tuple, Union
+
 from . import utils
 
 
@@ -109,10 +110,15 @@ class SerializableFactory:
         else:
             raise NotImplementedError(f'There is no known method to serialize {obj_type}')
 
-    def get_apply_serializer(self, obj: Any) -> bytes:
+    def get_apply_serializer(self, obj: Any, append_length=False) -> bytes:
         entry_dict = self.serializable_registry.get(obj.__class__, None)
         if entry_dict is not None:
-            return entry_dict['serializer'](obj)
+            bytes_str = entry_dict['serializer'](obj)
+            if not append_length:
+                return bytes_str
+            else:
+                bytes_str = utils.int_to_bytes(len(bytes_str)) + bytes_str
+                return bytes_str
         else:
             raise NotImplementedError(f'There is no known method to serialize {obj}')
 
@@ -123,7 +129,8 @@ class SerializableFactory:
         else:
             raise NotImplementedError(f'There is no known method to deserialize an {obj_type} type')
 
-    def get_apply_deserializer(self, bytes_str: bytes) -> Tuple[Any, bytes]:
+    def get_apply_deserializer(self, bytes_str:  bytes) -> Tuple[Any, bytes]:
+
         obj_type_str, remaining_bytes = self.get_deserializer(str)(bytes_str)
 
         obj_type = self.get_type_from_str(obj_type_str)

@@ -1,13 +1,14 @@
 import numpy as np
 import pytest
 
+from pymodaq_data.serialize.factory import SerializableFactory
 from pymodaq_data.serialize.serializer import (StringSerializeDeserialize as SSD,
                                                BytesSerializeDeserialize as BSD,
                                                ScalarSerializeDeserialize as ScSD,
                                                NdArraySerializeDeserialize as NdSD,
                                                ListSerializeDeserialize as LSD,)
 
-from pymodaq_data.serialize.factory import SerializableFactory
+
 from pymodaq_data import data as data_mod
 
 

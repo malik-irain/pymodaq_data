@@ -47,7 +47,7 @@ try:
     logger.info('')
     logger.info('************************')
     logger.info(f"Registering Serializables...")
-    from pymodaq_data.serialize import serializer
+    from pymodaq_data.serialize.serializer import SerializableFactory
     logger.info(f"Done")
     logger.info('************************')
 
