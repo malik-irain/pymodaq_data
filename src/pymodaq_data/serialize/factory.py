@@ -111,6 +111,20 @@ class SerializableFactory:
             raise NotImplementedError(f'There is no known method to serialize {obj_type}')
 
     def get_apply_serializer(self, obj: Any, append_length=False) -> bytes:
+        """
+
+        Parameters
+        ----------
+        obj: object
+            should be a serializable object (see get_serializables)
+        append_length: bool
+            if True will append the length of the bytes string in the beginning og the returned
+            bytes
+
+        Returns
+        -------
+        bytes: the encoded object
+        """
         entry_dict = self.serializable_registry.get(obj.__class__, None)
         if entry_dict is not None:
             bytes_str = entry_dict['serializer'](obj)
@@ -129,8 +143,26 @@ class SerializableFactory:
         else:
             raise NotImplementedError(f'There is no known method to deserialize an {obj_type} type')
 
-    def get_apply_deserializer(self, bytes_str:  bytes) -> Tuple[Any, bytes]:
+    def get_apply_deserializer(self, bytes_str:  bytes, only_object=False) -> Tuple[Any, bytes]:
+        """ Infer which object is to be deserialized from the first bytes
 
+        The type has been encoded by the get_apply_serializer method
+
+        Parameters
+        ----------
+        bytes_str: bytes
+            The bytes to convert back to an object
+        only_object: bool (default False)
+            if False, return the object and the remaining bytes if any
+            if True return only the object
+
+
+
+        Return
+        ------
+        object
+        bytes:
+        """
         obj_type_str, remaining_bytes = self.get_deserializer(str)(bytes_str)
 
         obj_type = self.get_type_from_str(obj_type_str)
@@ -140,7 +172,10 @@ class SerializableFactory:
 
         entry_dict = self.serializable_registry.get(obj_type, None)
         if entry_dict is not None:
-            return entry_dict['deserializer'](remaining_bytes)
+            if not only_object:
+                return entry_dict['deserializer'](remaining_bytes)
+            else:
+                return entry_dict['deserializer'](remaining_bytes)[0]
         else:
             raise NotImplementedError(f'There is no known method to deserialize an {obj_type_str} '
                                       f'type')
