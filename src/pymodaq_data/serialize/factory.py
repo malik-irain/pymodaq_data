@@ -85,7 +85,7 @@ class SerializableFactory:
 
     @classmethod
     def register_from_type(cls, obj_type: type, serialize_method: Callable,
-                           deserialize_method: Callable = None):
+                           deserialize_method: Callable):
         """Method to register a serializable object class to the internal registry.
 
         """
