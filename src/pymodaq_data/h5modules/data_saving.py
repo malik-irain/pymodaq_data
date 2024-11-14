@@ -58,7 +58,11 @@ class DataManagement(metaclass=ABCMeta):
         self.close_file()
 
     def close_file(self):
+        self._h5saver.flush()
         self._h5saver.close_file()
+
+    def close(self):
+        self.close_file()
 
     def _get_next_node_name(self, where: Union[str, Node]) -> str:
         """Get the formatted next node name given the ones already saved
