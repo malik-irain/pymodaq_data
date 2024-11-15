@@ -1578,4 +1578,19 @@ class TestFuncNumpy:
 
         assert not np.allclose(dwa_a, dwa_b * 0.1)
 
+    def test_flip_transpose_rotate(self):
+        dwa = data_mod.DataRaw('raw', units='', data=[DATA2D])
+
+        dwa_transform = np.flipud(dwa)
+        for ind in range(len(dwa)):
+            assert np.allclose(np.flipud(dwa[ind]), dwa_transform[ind])
+
+        dwa_transform = np.fliplr(dwa)
+        for ind in range(len(dwa)):
+            assert np.allclose(np.fliplr(dwa[ind]), dwa_transform[ind])
+
+        dwa_transform = np.transpose(dwa)
+        for ind in range(len(dwa)):
+            assert np.allclose(np.transpose(dwa[ind]), dwa_transform[ind])
+
 

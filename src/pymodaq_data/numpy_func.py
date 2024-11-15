@@ -170,3 +170,25 @@ def _allclose(dwa_a: 'DataWithAxes', dwa_b: 'DataWithAxes', *args,
                                         *args, **kwargs)) for ind in range(len(dwa_a))])
 
     return dwa
+
+
+# *************** other numpy function ****************
+
+@implements('flipud')
+def _flipud(dwa: 'DataWithAxes', *args, **kwargs):
+    dwa_func = dwa.deepcopy_with_new_data([np.flipud(data_array) for data_array in dwa])
+    return dwa_func
+
+
+@implements('fliplr')
+def _fliplr(dwa: 'DataWithAxes', *args, **kwargs):
+    dwa_func = dwa.deepcopy_with_new_data([np.fliplr(data_array) for data_array in dwa])
+    return dwa_func
+
+
+@implements('transpose')
+def _transpose(dwa: 'DataWithAxes', *args, **kwargs):
+    dwa_func = dwa.deepcopy_with_new_data([np.transpose(data_array) for data_array in dwa])
+    return dwa_func
+
+
