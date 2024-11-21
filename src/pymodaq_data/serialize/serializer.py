@@ -12,7 +12,7 @@ from typing import Optional, Tuple, List, Union, TYPE_CHECKING, Any
 import numpy as np
 
 from . import utils
-from ..serialize.factory import SerializableFactory
+from ..serialize.factory import SerializableFactory, SERIALIZABLE
 
 ser_factory = SerializableFactory()
 
