@@ -74,10 +74,11 @@ class SerializableFactory:
         """
         obj_type = obj.__class__
 
-        if obj_type not in cls.serializable_registry:
-            cls.serializable_registry[obj_type] = dict(
-                serializer=cls.add_type_to_serialize(serialize_method),
-                deserializer=deserialize_method)
+        cls.register_from_type(
+            obj_type=obj_type,
+            serialize_method=serialize_method,
+            deserialize_method=deserialize_method,
+        )
 
     @classmethod
     def register_decorator(cls) -> Callable[[type[_SerializableClass]], type[_SerializableClass]]:
@@ -115,6 +116,7 @@ class SerializableFactory:
         for k in self.serializable_registry:
             if obj_type_str in str(k):
                 return k
+        raise ValueError("Unknown type")
 
     def get_serialazables(self) -> List[type]:
         return list(self.serializable_registry.keys())
@@ -141,16 +143,13 @@ class SerializableFactory:
         -------
         bytes: the encoded object
         """
-        entry_dict = self.serializable_registry.get(obj.__class__, None)
-        if entry_dict is not None:
-            bytes_str = entry_dict['serializer'](obj)
-            if not append_length:
-                return bytes_str
-            else:
-                bytes_str = utils.int_to_bytes(len(bytes_str)) + bytes_str
-                return bytes_str
+        serializer = self.get_serializer(obj.__class__)
+        bytes_str = serializer(obj)
+        if not append_length:
+            return bytes_str
         else:
-            raise NotImplementedError(f'There is no known method to serialize {obj}')
+            bytes_str = utils.int_to_bytes(len(bytes_str)) + bytes_str
+            return bytes_str
 
     def get_deserializer(self, obj_type: type[Serializable]) -> Deserilizer[Serializable]:
         entry_dict = self.serializable_registry.get(obj_type, None)
@@ -187,13 +186,5 @@ class SerializableFactory:
         if obj_type is None:
             raise NotImplementedError(f'There is no known method to deserialize an {obj_type_str} '
                                       f'type')
-
-        entry_dict = self.serializable_registry.get(obj_type, None)
-        if entry_dict is not None:
-            if not only_object:
-                return entry_dict['deserializer'](remaining_bytes)
-            else:
-                return entry_dict['deserializer'](remaining_bytes)[0]
-        else:
-            raise NotImplementedError(f'There is no known method to deserialize an {obj_type_str} '
-                                      f'type')
+        result = self.get_deserializer(obj_type)(remaining_bytes)
+        return result[0] if only_object else result
