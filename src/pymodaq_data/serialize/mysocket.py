@@ -1,11 +1,10 @@
-from typing import Union, TYPE_CHECKING
+from typing import Any, Union, TYPE_CHECKING
 
 from pymodaq_utils.mysocket import Socket
 from . import utils
-from .factory import SerializableFactory
+from .factory import SerializableFactory, SERIALIZABLE
 
 ser_factory = SerializableFactory()
-SERIALIZABLE = Union[ser_factory.get_serialazables()]
 
 
 class SocketString:
