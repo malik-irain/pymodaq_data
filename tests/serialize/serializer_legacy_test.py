@@ -8,10 +8,11 @@ Created the 22/10/2023
 import numpy as np
 import pytest
 
-from pymodaq.utils import data as data_mod
+
+from pymodaq_data import data as data_mod
 from pymodaq_data.data import Axis, DataToExport, DwaType
 from pymodaq_data.serialize.serializer_legacy import Serializer, DeSerializer
-from pymodaq.utils.parameter import Parameter, utils as putils
+
 
 LABEL = 'A Label'
 UNITS = 'units'
@@ -52,10 +53,9 @@ def get_data():
     dat0D = init_data(DATA0D, 2, name='my0DData', source='raw', errors=True)
     dat1D_calculated = init_data(DATA1D, 2, name='my1DDatacalculated',
                                  klass=data_mod.DataCalculated, errors=True)
-    dat1D_raw = init_data(DATA1D, 2, name='my1DDataraw', klass=data_mod.DataFromPlugins,
+    dat1D_raw = init_data(DATA1D, 2, name='my1DDataraw', klass=data_mod.DataRaw,
                           errors=False)
-    dat_act = data_mod.DataActuator(data=45)
-    dte = data_mod.DataToExport(name='toexport', data=[dat0D, dat1D_calculated, dat1D_raw, dat_act])
+    dte = data_mod.DataToExport(name='toexport', data=[dat0D, dat1D_calculated, dat1D_raw])
     return dte
 
 
@@ -237,29 +237,6 @@ class TestObjectSerializationDeSerialization:
 
         assert (DeSerializer(Serializer().type_and_object_serialization(obj)).
                 type_and_object_deserialization() == obj)
-
-    def test_parameter(self):
-
-        param = {'title': 'Numbers:', 'name': 'numbers', 'type': 'group', 'children': [
-            {'title': 'Standard float', 'name': 'afloat', 'type': 'float', 'value': 20.,
-             'min': 1.,
-             'tip': 'displays this text as a tooltip'},
-            {'title': 'Linear Slide float', 'name': 'linearslidefloat', 'type': 'slide',
-             'value': 50, 'default': 50,
-             'min': 0,
-             'max': 123, 'subtype': 'linear'}]}
-
-        param_parent = Parameter.create(**param)
-        param_obj = param_parent.child('afloat')
-        path = putils.get_param_path(param_obj)
-        param_with_path = putils.ParameterWithPath(param_obj)
-
-        serialized = Serializer().type_and_object_serialization(param_with_path)
-
-        pwp_back = DeSerializer(serialized).type_and_object_deserialization()
-
-        assert path == pwp_back.path
-        assert putils.compareParameters(param_obj, pwp_back.parameter)
 
     def test_dte(self, get_data):
         dte_in = get_data

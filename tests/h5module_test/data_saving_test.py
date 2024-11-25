@@ -13,7 +13,8 @@ from pymodaq_data.h5modules.data_saving import (
     DataLoader, AxisSaverLoader, DataSaverLoader, DataToExportSaver,
     DataEnlargeableSaver, DataToExportTimedSaver, SPECIAL_GROUP_NAMES, DataToExportExtendedSaver,
     DataToExportEnlargeableSaver, DataExtendedSaver, DataLoader, BkgSaver, squeeze)
-from pymodaq_data.data import Axis, DataWithAxes, DataSource, DataToExport, DataRaw, DataDim
+from pymodaq_data.data import (Axis, DataWithAxes, DataSource, DataToExport, DataRaw,
+                               DataDim, DataDistribution)
 
 
 @pytest.fixture()
@@ -386,6 +387,68 @@ class TestDataEnlargeableSaver:
         if Nenl > 0:
             assert len(dwa_back.get_nav_axes()[0]) == 2
 
+    def test_add_data_ndviewer_0D(self, get_h5saver):
+        h5saver = get_h5saver
+        Npts = 11
+        Ndata = 1
+        data_array_0D = np.linspace(0, 100, Npts)
+        axis_array = np.linspace(0, 1, Npts)
+        axis_values = Axis('enlaxis', units='s', data=axis_array)
+        Nenl=1
+        data_saver = DataEnlargeableSaver(h5saver)
+
+        data = DataRaw(name='mynddata', data=[data_array_0D for _ in range(Ndata)],
+                       labels=['mylabel1',],
+                       nav_indexes=(0,),
+                       axes=[axis_values])
+
+        data_saver.add_data(h5saver.raw_group, data)
+
+        dwa_back = data_saver.load_data('/RawData/EnlData00')
+        for ind in range(len(data_array_0D)):
+            assert dwa_back.inav[ind].data[0][0] == data_array_0D[ind]
+        assert dwa_back.get_axis_from_index(dwa_back.nav_indexes[0])[0] == axis_values
+
+
+        data_saver.add_data(h5saver.raw_group, data)
+        dwa_back = data_saver.load_data('/RawData/EnlData00')
+
+        assert len(dwa_back.axes[0]) == 2 * len(axis_array)
+        assert dwa_back.size == 2 * len(axis_array)
+
+
+    def test_add_data_ndviewer_1D(self, get_h5saver):
+        h5saver = get_h5saver
+        Npts_nav = 11
+        Npts_sig = 21
+        Ndata = 1
+        data_array_1D_1D = np.arange(Npts_sig*Npts_nav).reshape((Npts_nav, Npts_sig))
+        axis_array_sig = np.linspace(0, 100, Npts_sig)
+        axis_array_nav = np.linspace(0, 1, Npts_nav)
+        axis_nav = Axis('enlaxis', units='s', data=axis_array_nav, index=0)
+        axis_sig = Axis('sigaxis', units='m', data=axis_array_sig, index=1)
+
+        data_saver = DataEnlargeableSaver(h5saver)
+
+        data = DataRaw(name='mynddata', data=[data_array_1D_1D for _ in range(Ndata)],
+                       labels=['mylabel1',],
+                       nav_indexes=(0,),
+                       axes=[axis_nav, axis_sig])
+
+        data_saver.add_data(h5saver.raw_group, data)
+
+        dwa_back = data_saver.load_data('/RawData/EnlData00')
+        for ind in range(data_array_1D_1D.shape[0]):
+            assert np.allclose(dwa_back.inav[ind].data[0], data_array_1D_1D[ind])
+        assert dwa_back.get_axis_from_index(0)[0] == axis_nav
+        assert dwa_back.get_axis_from_index(1)[0] == axis_sig
+
+        data_saver.add_data(h5saver.raw_group, data)
+        dwa_back = data_saver.load_data('/RawData/EnlData00')
+
+        assert len(dwa_back.get_axis_from_index(0)[0]) == 2 * len(axis_nav)
+        assert dwa_back.size == 2 * len(axis_nav) * Npts_sig
+
 
 class TestDataExtendedSaver:
     def test_init(self, get_h5saver):
@@ -474,7 +537,7 @@ class TestDataToExportEnlargeableSaver:
         axis_values = list(np.random.randn(Nenl))
 
         dwa = DataRaw('dwa', data=[data_array],
-                      distribution='spread',)
+                      distribution=DataDistribution.spread)
         dwa.create_missing_axes()
 
         dte = DataToExport('dte', data=[dwa])

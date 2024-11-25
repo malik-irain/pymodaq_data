@@ -58,7 +58,11 @@ class DataManagement(metaclass=ABCMeta):
         self.close_file()
 
     def close_file(self):
+        self._h5saver.flush()
         self._h5saver.close_file()
+
+    def close(self):
+        self.close_file()
 
     def _get_next_node_name(self, where: Union[str, Node]) -> str:
         """Get the formatted next node name given the ones already saved
@@ -600,7 +604,7 @@ class DataEnlargeableSaver(DataSaverLoader):
                     self._axis_saver.add_axis(where, axis)
 
     def add_data(self, where: Union[Node, str], data: DataWithAxes,
-                 axis_values: Iterable[float] = None):
+                 axis_values: Iterable[float] = None, **kwargs):
         """ Append data to an enlargeable array node
 
         Data of dim (0, 1 or 2) will be just appended to the enlargeable array.
@@ -624,17 +628,31 @@ class DataEnlargeableSaver(DataSaverLoader):
         if self.get_last_node_name(where) is None:
             if len(data.nav_indexes) == 0:
                 data_init = data
+            elif len(data.nav_indexes) == 1:  # special case of DataND data
+                data_init = data.inav[0]
+                add_enl_axes = True
+                axis = data.get_axis_from_index(data.nav_indexes[0])[0]
+                axis_values = (axis.get_data(),)
+                self._enl_axis_names = (axis.label,)
+                self._enl_axis_units = (axis.units,)
             else:
                 raise DataDimError('It is not possible to append DataND')
             self._create_data_arrays(where, data_init, save_axes=True, add_enl_axes=add_enl_axes)
+        elif len(data.nav_indexes) == 1:  # special case of DataND data
+            add_enl_axes = True
+            axis = data.get_axis_from_index(data.nav_indexes[0])[0]
+            axis_values = (axis.get_data(),)
 
         for ind_data in range(len(data)):
             array: EARRAY = self.get_node_from_index(where, ind_data)
             array.append(data[ind_data])
-        if add_enl_axes and axis_values is not None:
+        if add_enl_axes:
             for ind_axis in range(self._n_enl_axes):
                 axis_array: EARRAY = self._axis_saver.get_node_from_index(where, ind_axis)
-                axis_array.append(np.array([axis_values[ind_axis]]))
+                if not isinstance(axis_values[ind_axis], np.ndarray):
+                    axis_array.append(np.array([axis_values[ind_axis]]))
+                else:
+                    axis_array.append(axis_values[ind_axis], expand=False)
                 axis_array.attrs['size'] += 1
 
 
@@ -862,7 +880,7 @@ class DataToExportEnlargeableSaver(DataToExportSaver):
     def add_data(self, where: Union[Node, str], data: DataToExport,
                  axis_values: List[Union[float, np.ndarray]] = None,
                  axis_value: Union[float, np.ndarray] = None,
-                 settings_as_xml='', metadata=None,
+                 settings_as_xml='', metadata=None, **kwargs
                  ):
         """
 
@@ -885,7 +903,7 @@ class DataToExportEnlargeableSaver(DataToExportSaver):
         if axis_values is None and axis_value is not None:
             axis_values = [axis_value]
 
-        super().add_data(where, data, settings_as_xml, metadata)
+        super().add_data(where, data, settings_as_xml, metadata, **kwargs)
         # a parent navigation group (same for all data nodes)
 
         where = self._get_node(where)
