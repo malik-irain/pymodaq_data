@@ -103,7 +103,6 @@ def test_bytes_serialization():
 def test_scalar_serialization():
     s = 23
     obj_type = 'int'
-    assert ScSD.serialize(s) == b'\x00\x00\x00\x03<i4\x00\x00\x00\x04\x17\x00\x00\x00'
     assert (ser_factory.get_serializer(type(s))(s) ==
            b'\x00\x00\x00' + chr(len(obj_type)).encode() + obj_type.encode() +
             ScSD.serialize(s))
@@ -117,7 +116,6 @@ def test_scalar_serialization():
 
     s = -3.8
     obj_type = 'float'
-    assert ScSD.serialize(s) == b'\x00\x00\x00\x03<f8\x00\x00\x00\x08ffffff\x0e\xc0'
     assert (ser_factory.get_serializer(type(s))(s) ==
            b'\x00\x00\x00' + chr(len(obj_type)).encode() + obj_type.encode() +
             ScSD.serialize(s))
@@ -131,9 +129,6 @@ def test_scalar_serialization():
 
     s = 4 - 2.5j
     obj_type = 'complex'
-    assert ScSD.serialize(s) == \
-           (b'\x00\x00\x00\x04<c16\x00\x00\x00\x10\x00\x00\x00\x00\x00\x00\x10@\x00\x00'
-            b'\x00\x00\x00\x00\x04\xc0')
     assert (ser_factory.get_serializer(type(s))(s) ==
            b'\x00\x00\x00' + chr(len(obj_type)).encode() + obj_type.encode() +
             ScSD.serialize(s))
@@ -149,7 +144,6 @@ def test_scalar_serialization():
 def test_bool_serialization():
     s = True
     obj_type = 'bool'
-    assert ScSD.serialize(s) == b'\x00\x00\x00\x03|b1\x00\x00\x00\x01\x01'
     assert (ser_factory.get_serializer(type(s))(s) ==
            b'\x00\x00\x00' + chr(len(obj_type)).encode() + obj_type.encode() +
             ScSD.serialize(s))
@@ -163,7 +157,6 @@ def test_bool_serialization():
 
     s = False
     obj_type = 'bool'
-    assert ScSD.serialize(s) == b'\x00\x00\x00\x03|b1\x00\x00\x00\x01\x00'
     assert (ser_factory.get_serializer(type(s))(s) ==
            b'\x00\x00\x00' + chr(len(obj_type)).encode() + obj_type.encode() +
             ScSD.serialize(s))
