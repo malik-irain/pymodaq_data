@@ -11,7 +11,6 @@ import pytest
 from pymodaq_data import data as data_mod
 from pymodaq_data.data import Axis, DataToExport, DwaType
 from pymodaq_data.serialize.serializer_legacy import Serializer, DeSerializer
-from pymodaq_gui.parameter import Parameter, utils as putils
 
 LABEL = 'A Label'
 UNITS = 'units'
