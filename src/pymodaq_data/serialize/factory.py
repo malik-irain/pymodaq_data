@@ -1,5 +1,7 @@
 from abc import ABCMeta, abstractmethod
-from typing import Callable, List, Any, Tuple, Union
+from typing import Callable, List, Any, Optional, Tuple, TypeVar, Union
+
+from numpy.typing import NDArray
 
 from . import utils
 
@@ -19,21 +21,31 @@ class SerializableBase(metaclass=ABCMeta):
 
     @staticmethod
     @abstractmethod
-    def serialize(obj: any) -> bytes:
+    def serialize(obj: "SerializableBase") -> bytes:
         "implementation of the serialization into bytes"
         ...
 
     @staticmethod
     @abstractmethod
-    def deserialize(bytes_str: bytes) -> Tuple[Any, bytes]:
+    def deserialize(bytes_str: bytes) -> Tuple["SerializableBase", bytes]:
         "implementation of the deserialization from bytes"
         ...
+
+
+# List of all objects serializable via the serializer
+SERIALIZABLE = Union[bytes, str, int, float, complex, list, NDArray, SerializableBase]
+
+Serializable = TypeVar("Serializable", bound=SERIALIZABLE)
+_SerializableClass = TypeVar("_SerializableClass", bound=SerializableBase)
+
+Serializer = Callable[[Serializable], bytes]
+Deserilizer = Callable[[bytes], Tuple[Serializable, bytes]]
 
 
 class SerializableFactory:
     """The factory class for creating executors"""
 
-    serializable_registry = {}
+    serializable_registry: dict[type[SERIALIZABLE], dict[str, Union[Serializer, Deserilizer]]] = {}
 
     @classmethod
     @property
@@ -42,8 +54,10 @@ class SerializableFactory:
         ...
 
     @classmethod
-    def add_type_to_serialize(cls, serialize_method: Callable) -> Callable:
-        def wrap(obj: Any):
+    def add_type_to_serialize(
+        cls, serialize_method: Callable[[Serializable], bytes]
+    ) -> Callable[[Serializable], bytes]:
+        def wrap(obj: Serializable) -> bytes:
             bytes_str = b''
             type_as_bytes, len_as_bytes = utils.str_len_to_bytes(obj.__class__.__name__)
             bytes_str += len_as_bytes
@@ -53,20 +67,21 @@ class SerializableFactory:
         return wrap
 
     @classmethod
-    def register_from_obj(cls, obj: Any, serialize_method: Callable,
-                          deserialize_method: Callable = None):
+    def register_from_obj(cls, obj: Serializable, serialize_method: Serializer[Serializable],
+                          deserialize_method: Optional[Deserilizer[Serializable]] = None):
         """Method to register a serializable object class to the internal registry.
 
         """
         obj_type = obj.__class__
 
-        if obj_type not in cls.serializable_registry:
-            cls.serializable_registry[obj_type] = dict(
-                serializer=cls.add_type_to_serialize(serialize_method),
-                deserializer=deserialize_method)
+        cls.register_from_type(
+            obj_type=obj_type,
+            serialize_method=serialize_method,
+            deserialize_method=deserialize_method,
+        )
 
     @classmethod
-    def register_decorator(cls) -> Callable:
+    def register_decorator(cls) -> Callable[[type[_SerializableClass]], type[_SerializableClass]]:
         """Class decorator method to register exporter class to the internal registry. Must be used as
         decorator above the definition of an H5Exporter class. H5Exporter must implement specific class
         attributes and methods, see definition: h5node_exporter.H5Exporter
@@ -75,7 +90,9 @@ class SerializableFactory:
             the exporter class
         """
 
-        def inner_wrapper(wrapped_class: type(SerializableBase)) -> Callable:
+        def inner_wrapper(
+            wrapped_class: type[_SerializableClass],
+        ) -> type[_SerializableClass]:
             cls.register_from_type(wrapped_class,
                                    wrapped_class.serialize,
                                    wrapped_class.deserialize)
@@ -85,8 +102,8 @@ class SerializableFactory:
         return inner_wrapper
 
     @classmethod
-    def register_from_type(cls, obj_type: type, serialize_method: Callable,
-                           deserialize_method: Callable):
+    def register_from_type(cls, obj_type: type[Serializable], serialize_method: Serializer[Serializable],
+                           deserialize_method: Deserilizer[Serializable]):
         """Method to register a serializable object class to the internal registry.
 
         """
@@ -95,18 +112,19 @@ class SerializableFactory:
                 serializer=cls.add_type_to_serialize(serialize_method),
                 deserializer=deserialize_method)
 
-    def get_type_from_str(self, obj_type_str) -> type:
+    def get_type_from_str(self, obj_type_str: str) -> type:
         for k in self.serializable_registry:
             if obj_type_str in str(k):
                 return k
+        raise ValueError("Unknown type")
 
     def get_serialazables(self) -> List[type]:
         return list(self.serializable_registry.keys())
 
-    def get_serializer(self, obj_type: type) -> Callable:
+    def get_serializer(self, obj_type: type) -> Serializer:
         entry_dict = self.serializable_registry.get(obj_type, None)
         if entry_dict is not None:
-            return entry_dict['serializer']
+            return entry_dict['serializer']  # type: ignore
         else:
             raise NotImplementedError(f'There is no known method to serialize {obj_type}')
 
@@ -125,25 +143,24 @@ class SerializableFactory:
         -------
         bytes: the encoded object
         """
-        entry_dict = self.serializable_registry.get(obj.__class__, None)
-        if entry_dict is not None:
-            bytes_str = entry_dict['serializer'](obj)
-            if not append_length:
-                return bytes_str
-            else:
-                bytes_str = utils.int_to_bytes(len(bytes_str)) + bytes_str
-                return bytes_str
+        serializer = self.get_serializer(obj.__class__)
+        bytes_str = serializer(obj)
+        if not append_length:
+            return bytes_str
         else:
-            raise NotImplementedError(f'There is no known method to serialize {obj}')
+            bytes_str = utils.int_to_bytes(len(bytes_str)) + bytes_str
+            return bytes_str
 
-    def get_deserializer(self, obj_type: type) -> Callable:
+    def get_deserializer(self, obj_type: type[Serializable]) -> Deserilizer[Serializable]:
         entry_dict = self.serializable_registry.get(obj_type, None)
         if entry_dict is not None:
-            return entry_dict['deserializer']
+            return entry_dict['deserializer']  # type: ignore
         else:
             raise NotImplementedError(f'There is no known method to deserialize an {obj_type} type')
 
-    def get_apply_deserializer(self, bytes_str:  bytes, only_object=False) -> Tuple[Any, bytes]:
+    def get_apply_deserializer(
+        self, bytes_str: bytes, only_object: bool = False
+    ) -> Tuple[SERIALIZABLE, bytes]:
         """ Infer which object is to be deserialized from the first bytes
 
         The type has been encoded by the get_apply_serializer method
@@ -169,13 +186,5 @@ class SerializableFactory:
         if obj_type is None:
             raise NotImplementedError(f'There is no known method to deserialize an {obj_type_str} '
                                       f'type')
-
-        entry_dict = self.serializable_registry.get(obj_type, None)
-        if entry_dict is not None:
-            if not only_object:
-                return entry_dict['deserializer'](remaining_bytes)
-            else:
-                return entry_dict['deserializer'](remaining_bytes)[0]
-        else:
-            raise NotImplementedError(f'There is no known method to deserialize an {obj_type_str} '
-                                      f'type')
+        result = self.get_deserializer(obj_type)(remaining_bytes)
+        return result[0] if only_object else result

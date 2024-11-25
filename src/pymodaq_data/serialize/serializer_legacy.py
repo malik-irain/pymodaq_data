@@ -5,15 +5,12 @@ from typing import Optional, Union, Any, List, TYPE_CHECKING
 from .mysocket import SocketString, Socket
 from . import utils
 
-from pymodaq_data import SerializableFactory
+from pymodaq_data import SerializableFactory, SERIALIZABLE
 
 ser_factory = SerializableFactory()
 
 if TYPE_CHECKING:
     from pymodaq_data.data import (Axis, DataWithAxes, DataToExport)
-
-
-SERIALIZABLE = Union[ser_factory.get_serialazables()]
 
 
 class Serializer:
@@ -23,7 +20,7 @@ class Serializer:
     Deprecated in PyMoDAQ >= 5 use the SerializerFactory object
     """
 
-    def __init__(self, obj: Optional[Union[ser_factory.get_serialazables()]] = None) -> None:
+    def __init__(self, obj: Optional[SERIALIZABLE] = None) -> None:
         self._bytes_string = b''
         self._obj = obj
 
@@ -219,7 +216,7 @@ class Serializer:
         return ser_factory.get_apply_serializer(dte, append_length=True)
 
     def type_and_object_serialization(
-            self, obj: Optional[ser_factory.get_serialazables()] = None) -> bytes:
+            self, obj: Optional[SERIALIZABLE] = None) -> bytes:
         """Serialize an object with its type, such that it can be retrieved by
         `DeSerializer.type_and_object_deserialization`.
         """
@@ -247,7 +244,7 @@ class DeSerializer:
     :py:class:`~pymodaq_data.serialize.mysocket.Socket`
     """
 
-    def __init__(self, bytes_string:  Union[bytes, Socket] = None) -> None:
+    def __init__(self, bytes_string:  Union[bytes, Socket,] = None) -> None:
         if isinstance(bytes_string, bytes):
             bytes_string = SocketString(bytes_string)
         self._bytes_string = bytes_string
@@ -320,7 +317,7 @@ class DeSerializer:
         array, _ = ser_factory.get_apply_deserializer(bytes_str)
         return array
 
-    def type_and_object_deserialization(self) -> Union[ser_factory.get_serialazables()]:
+    def type_and_object_deserialization(self) -> SERIALIZABLE:
         """ Deserialize specific objects from their binary representation (inverse of `Serializer.type_and_object_serialization`).
 
         See Also
