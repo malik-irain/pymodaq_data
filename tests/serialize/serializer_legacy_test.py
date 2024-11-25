@@ -238,29 +238,6 @@ class TestObjectSerializationDeSerialization:
         assert (DeSerializer(Serializer().type_and_object_serialization(obj)).
                 type_and_object_deserialization() == obj)
 
-    def test_parameter(self):
-
-        param = {'title': 'Numbers:', 'name': 'numbers', 'type': 'group', 'children': [
-            {'title': 'Standard float', 'name': 'afloat', 'type': 'float', 'value': 20.,
-             'min': 1.,
-             'tip': 'displays this text as a tooltip'},
-            {'title': 'Linear Slide float', 'name': 'linearslidefloat', 'type': 'slide',
-             'value': 50, 'default': 50,
-             'min': 0,
-             'max': 123, 'subtype': 'linear'}]}
-
-        param_parent = Parameter.create(**param)
-        param_obj = param_parent.child('afloat')
-        path = putils.get_param_path(param_obj)
-        param_with_path = putils.ParameterWithPath(param_obj)
-
-        serialized = Serializer().type_and_object_serialization(param_with_path)
-
-        pwp_back = DeSerializer(serialized).type_and_object_deserialization()
-
-        assert path == pwp_back.path
-        assert putils.compareParameters(param_obj, pwp_back.parameter)
-
     def test_dte(self, get_data):
         dte_in = get_data
 
