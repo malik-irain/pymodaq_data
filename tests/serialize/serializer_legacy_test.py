@@ -51,10 +51,9 @@ def get_data():
     dat0D = init_data(DATA0D, 2, name='my0DData', source='raw', errors=True)
     dat1D_calculated = init_data(DATA1D, 2, name='my1DDatacalculated',
                                  klass=data_mod.DataCalculated, errors=True)
-    dat1D_raw = init_data(DATA1D, 2, name='my1DDataraw', klass=data_mod.DataFromPlugins,
+    dat1D_raw = init_data(DATA1D, 2, name='my1DDataraw', klass=data_mod.DataRaw,
                           errors=False)
-    dat_act = data_mod.DataActuator(data=45)
-    dte = data_mod.DataToExport(name='toexport', data=[dat0D, dat1D_calculated, dat1D_raw, dat_act])
+    dte = data_mod.DataToExport(name='toexport', data=[dat0D, dat1D_calculated, dat1D_raw])
     return dte
 
 
