@@ -28,15 +28,19 @@ from pymodaq_utils.enums import BaseEnum, enum_checker
 from pymodaq_utils.warnings import deprecation_msg
 from pymodaq_utils.utils import find_objects_in_list_from_attr_name_val
 from pymodaq_utils.logger import set_logger, get_module_name
-from pymodaq_data.slicing import SpecialSlicersData
+
 from pymodaq_utils import math_utils as mutils
 from pymodaq_utils.config import Config
+
 from pymodaq_data.plotting.plotter.plotter import PlotterFactory
 from pymodaq_data.numpy_func import HANDLED_FUNCTIONS, HANDLED_UFUNCS, process_arguments_for_ufuncs
 from pymodaq_data import Q_, ureg, Unit
+from pymodaq_data.slicing import SpecialSlicersData
+from pymodaq_data.serialize.factory import SerializableFactory, SerializableBase
 
 config = Config()
 plotter_factory = PlotterFactory()
+ser_factory = SerializableFactory()
 logger = set_logger(get_module_name(__file__))
 
 
@@ -178,7 +182,7 @@ def _compute_slices_from_axis(axis: Axis, _slice, *ignored, is_index=True, **ign
     return _slice
 
 
-class Axis:
+class Axis(SerializableBase):
     """Object holding info and data about physical axis of some data
 
     In case the axis's data is linear, store the info as a scale and offset else store the data
@@ -210,6 +214,12 @@ class Axis:
 
     base_type = 'Axis'
 
+    def __new__(cls, *args, **kwargs):
+        ser_factory.register_from_type(cls,
+                                       cls.serialize,
+                                       cls.deserialize)
+        return super().__new__(cls)
+
     def __init__(self, label: str = '', units: str = '', data: np.ndarray = None, index: int = 0,
                  scaling=None, offset=None, size=None, spread_order: int = 0):
         super().__init__()
@@ -232,6 +242,61 @@ class Axis:
         self.spread_order = spread_order
         if (scaling is None or offset is None or size is None) and data is not None:
             self.get_scale_offset_from_data(data)
+
+    @staticmethod
+    def serialize(axis: Axis):
+        """ Convert an Axis object into a bytes message together with the info to convert it back
+
+        Parameters
+        ----------
+        axis: Axis
+
+        Returns
+        -------
+        bytes: the total bytes message to serialize the Axis
+
+        Notes
+        -----
+
+        The bytes sequence is constructed as:
+
+        * serialize the axis label
+        * serialize the axis units
+        * serialize the axis array
+        * serialize the axis
+        * serialize the axis spread_order
+        """
+        if not isinstance(axis, Axis):
+            raise TypeError(f'{axis} should be a list, not a {type(axis)}')
+
+        bytes_string = b''
+        bytes_string += ser_factory.get_apply_serializer(axis.label)
+        bytes_string += ser_factory.get_apply_serializer(axis.units)
+        bytes_string += ser_factory.get_apply_serializer(axis.get_data())
+        bytes_string += ser_factory.get_apply_serializer(axis.index)
+        bytes_string += ser_factory.get_apply_serializer(axis.spread_order)
+        return bytes_string
+
+    @staticmethod
+    def deserialize(bytes_str) -> Tuple[Axis, bytes]:
+        """Convert bytes into an Axis object
+
+        Convert the first bytes into an Axis reading first information about the Axis
+
+        Returns
+        -------
+        Axis: the decoded Axis
+        bytes: the remaining bytes string if any
+        """
+        axis_label, remaining_bytes = ser_factory.get_apply_deserializer(bytes_str)
+        axis_units, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes)
+        axis_array, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes)
+        axis_index, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes)
+        axis_spread_order, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes)
+
+        axis = Axis(axis_label, axis_units, data=axis_array, index=axis_index,
+                    spread_order=axis_spread_order)
+        return axis, remaining_bytes
 
     @staticmethod
     def from_quantity(quantity: Q_[np.ndarray], label='axis', index=0) -> Axis:
@@ -1779,7 +1844,7 @@ class AxesManagerSpread(AxesManagerBase):
             return string
 
 
-class DataWithAxes(DataBase):
+class DataWithAxes(DataBase, SerializableBase):
     """Data object with Axis objects corresponding to underlying data nd-arrays
 
     Parameters
@@ -1797,6 +1862,11 @@ class DataWithAxes(DataBase):
         The list should match the length of the data attribute while the ndarrays
         should match the data ndarray
     """
+    def __new__(cls, *args, **kwargs):
+        ser_factory.register_from_type(cls, cls.serialize,
+                                       cls.deserialize)  # implement
+        # serialization/deserialization to all subtypes of DataBase
+        return super().__new__(cls)
 
     def __init__(self, name: str,
                  source: DataSource = None, dim: DataDim = None,
@@ -1842,6 +1912,102 @@ class DataWithAxes(DataBase):
         self.get_dim_from_data_axes()  # in DataBase, dim is processed from the shape of data, but if axes are provided
         #then use get_dim_from axes
         self._check_errors(errors)
+
+    @staticmethod
+    def serialize(dwa: DataWithAxes):
+        """ Convert a DataWithAxes into a bytes string
+
+        Parameters
+        ----------
+        dwa: DataWithAxes
+
+        Returns
+        -------
+        bytes: the total bytes message to serialize the DataWithAxes
+
+        Notes
+        -----
+        The bytes sequence is constructed as:
+
+        * serialize the timestamp: float
+        * serialize the name
+        * serialize the source enum as a string
+        * serialize the dim enum as a string
+        * serialize the distribution enum as a string
+        * serialize the list of numpy arrays
+        * serialize the list of labels
+        * serialize the origin
+        * serialize the nav_index tuple as a list of int
+        * serialize the list of axis
+        * serialize the errors attributes (None or list(np.ndarray))
+        * serialize the list of names of extra attributes
+        * serialize the extra attributes
+        """
+
+        bytes_string = b''
+        bytes_string += ser_factory.get_apply_serializer(dwa.timestamp)
+        bytes_string += ser_factory.get_apply_serializer(dwa.name)
+        bytes_string += ser_factory.get_apply_serializer(dwa.source.name)
+        bytes_string += ser_factory.get_apply_serializer(dwa.dim.name)
+        bytes_string += ser_factory.get_apply_serializer(dwa.distribution.name)
+        bytes_string += ser_factory.get_apply_serializer(dwa.data)
+        bytes_string += ser_factory.get_apply_serializer(dwa.units)
+        bytes_string += ser_factory.get_apply_serializer(dwa.labels)
+        bytes_string += ser_factory.get_apply_serializer(dwa.origin)
+        bytes_string += ser_factory.get_apply_serializer(list(dwa.nav_indexes))
+        bytes_string += ser_factory.get_apply_serializer(dwa.axes)
+        if dwa.errors is None:
+            errors = []  # have to use this extra attribute as if I force dwa.errors = [], it will be
+            # internally modified as None again
+        else:
+            errors = dwa.errors
+        bytes_string += ser_factory.get_apply_serializer(errors)
+        bytes_string += ser_factory.get_apply_serializer(dwa.extra_attributes)
+        for attribute in dwa.extra_attributes:
+            bytes_string += ser_factory.get_apply_serializer(
+                getattr(dwa, attribute))
+        return bytes_string
+
+    @classmethod
+    def deserialize(cls, bytes_str: bytes) -> Tuple[DataWithAxes, bytes]:
+        """Convert bytes into a DataWithAxes object
+
+        Convert the first bytes into a DataWithAxes reading first information about the underlying
+        data
+
+        Returns
+        -------
+        DataWithAxes: the decoded DataWithAxes
+        bytes: the remaining bytes string if any
+        """
+        timestamp, remaining_bytes = ser_factory.get_apply_deserializer(bytes_str)
+        name, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes)
+        source, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes)
+        dim, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes)
+        distribution, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes)
+        data, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes)
+        units, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes)
+        labels, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes)
+        origin, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes)
+        nav_index_list, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes)
+        nav_indexes = tuple(nav_index_list)
+        axes, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes)
+
+        errors, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes)
+        extra_attributes, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes)
+
+        dwa = cls(name, source=source, dim=dim, distribution=distribution,
+                  data=data, units=units, labels=labels, origin=origin, nav_indexes=nav_indexes,
+                  axes=axes)
+        if len(errors) != 0:
+            dwa.errors = errors
+        dwa.extra_attributes = extra_attributes
+        for attribute in dwa.extra_attributes:
+            attr_value, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes)
+            setattr(dwa, attribute, attr_value)
+
+        dwa.timestamp = timestamp
+        return dwa, remaining_bytes
 
     def check_axes_linear(self, axes: List[Axis] = None) -> bool:
         """ Check if any axis may be non linear
@@ -2697,7 +2863,7 @@ class DataFromRoi(DataCalculated):
                          **kwargs)
 
 
-class DataToExport(DataLowLevel):
+class DataToExport(DataLowLevel, SerializableBase):
     """Object to store all raw and calculated DataWithAxes data for later exporting, saving, sending signal...
 
     Includes methods to retrieve data from dim, source...
@@ -2717,6 +2883,11 @@ class DataToExport(DataLowLevel):
     timestamp
     data
     """
+    def __new__(cls, *args, **kwargs):
+        ser_factory.register_from_type(cls, cls.serialize,
+                                       cls.deserialize)  # implement
+        # serialization/deserialization to all subtypes of DataToExport
+        return super().__new__(cls)
 
     def __init__(self, name: str, data: List[DataWithAxes] = [], **kwargs):
         """
@@ -2731,10 +2902,57 @@ class DataToExport(DataLowLevel):
             raise TypeError('Data stored in a DataToExport object should be as a list of objects'
                             ' inherited from DataWithAxis')
         self._data = []
+        self._iter_index = 0
 
         self.data = data
         for key in kwargs:
             setattr(self, key, kwargs[key])
+
+    @staticmethod
+    def serialize(dte: DataToExport):
+        """ Convert a DataToExport into a bytes string
+
+        Parameters
+        ----------
+        dte: DataToExport
+
+        Returns
+        -------
+        bytes: the total bytes message to serialize the DataToExport
+
+        Notes
+        -----
+        The bytes sequence is constructed as:
+
+        * serialize the string type: 'DataToExport'
+        * serialize the timestamp: float
+        * serialize the name
+        * serialize the list of DataWithAxes
+        """
+        bytes_string = b''
+        bytes_string += ser_factory.get_apply_serializer(dte.timestamp)
+        bytes_string += ser_factory.get_apply_serializer(dte.name)
+        bytes_string += ser_factory.get_apply_serializer(dte.data)
+        return bytes_string
+
+    @classmethod
+    def deserialize(cls, bytes_str) -> Tuple[DataToExport, bytes]:
+        """Convert bytes into a DataToExport object
+
+        Convert the first bytes into a DataToExport reading first information about the underlying data
+
+        Returns
+        -------
+        DataToExport: the decoded DataToExport
+        bytes: the remaining bytes if any
+        """
+        timestamp, remaining_bytes = ser_factory.get_apply_deserializer(bytes_str)
+        name, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes)
+        data, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes)
+
+        dte = cls(name, data=data)
+        dte.timestamp = timestamp
+        return dte, remaining_bytes
 
     def plot(self, plotter_backend: str = config('plotting', 'backend'), *args, **kwargs):
         """ Call a plotter factory and its plot method over the actual data"""
