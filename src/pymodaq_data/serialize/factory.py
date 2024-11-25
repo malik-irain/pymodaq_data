@@ -39,19 +39,13 @@ Serializable = TypeVar("Serializable", bound=SERIALIZABLE)
 _SerializableClass = TypeVar("_SerializableClass", bound=SerializableBase)
 
 Serializer = Callable[[Serializable], bytes]
-Deserilizer = Callable[[bytes], Tuple[Serializable, bytes]]
+Deserializer = Callable[[bytes], Tuple[Serializable, bytes]]
 
 
 class SerializableFactory:
     """The factory class for creating executors"""
 
-    serializable_registry: dict[type[SERIALIZABLE], dict[str, Union[Serializer, Deserilizer]]] = {}
-
-    @classmethod
-    @property
-    def name(cls) -> str:
-        """str: object identifier, if not specified will be the name of the class"""
-        ...
+    serializable_registry: dict[type[SERIALIZABLE], dict[str, Union[Serializer, Deserializer]]] = {}
 
     @classmethod
     def add_type_to_serialize(
@@ -68,7 +62,7 @@ class SerializableFactory:
 
     @classmethod
     def register_from_obj(cls, obj: Serializable, serialize_method: Serializer[Serializable],
-                          deserialize_method: Optional[Deserilizer[Serializable]] = None):
+                          deserialize_method: Optional[Deserializer[Serializable]] = None):
         """Method to register a serializable object class to the internal registry.
 
         """
@@ -103,7 +97,7 @@ class SerializableFactory:
 
     @classmethod
     def register_from_type(cls, obj_type: type[Serializable], serialize_method: Serializer[Serializable],
-                           deserialize_method: Deserilizer[Serializable]):
+                           deserialize_method: Deserializer[Serializable]):
         """Method to register a serializable object class to the internal registry.
 
         """
@@ -151,7 +145,7 @@ class SerializableFactory:
             bytes_str = utils.int_to_bytes(len(bytes_str)) + bytes_str
             return bytes_str
 
-    def get_deserializer(self, obj_type: type[Serializable]) -> Deserilizer[Serializable]:
+    def get_deserializer(self, obj_type: type[Serializable]) -> Deserializer[Serializable]:
         entry_dict = self.serializable_registry.get(obj_type, None)
         if entry_dict is not None:
             return entry_dict['deserializer']  # type: ignore
