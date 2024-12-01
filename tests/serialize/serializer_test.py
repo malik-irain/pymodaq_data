@@ -81,7 +81,7 @@ def test_string_serialization():
     assert SSD.deserialize(SSD.serialize(s)) == (s, b'')
 
     assert (ser_factory.get_apply_deserializer(ser_factory.get_apply_serializer(s))
-            == (s, b''))
+            == s)
 
 
 def test_bytes_serialization():
@@ -97,7 +97,7 @@ def test_bytes_serialization():
     assert BSD.deserialize(BSD.serialize(b)) == (b, b'')
 
     assert (ser_factory.get_apply_deserializer(ser_factory.get_apply_serializer(b))
-            == (b, b''))
+            == b)
 
 
 def test_scalar_serialization():
@@ -112,7 +112,7 @@ def test_scalar_serialization():
     assert ScSD.deserialize(ScSD.serialize(s)) == (s, b'')
 
     assert (ser_factory.get_apply_deserializer(ser_factory.get_apply_serializer(s))
-            == (s, b''))
+            == s)
 
     s = -3.8
     obj_type = 'float'
@@ -125,7 +125,7 @@ def test_scalar_serialization():
     assert ScSD.deserialize(ScSD.serialize(s)) == (s, b'')
 
     assert (ser_factory.get_apply_deserializer(ser_factory.get_apply_serializer(s))
-            == (s, b''))
+            == s)
 
     s = 4 - 2.5j
     obj_type = 'complex'
@@ -138,7 +138,7 @@ def test_scalar_serialization():
     assert ScSD.deserialize(ScSD.serialize(s)) == (s, b'')
 
     assert (ser_factory.get_apply_deserializer(ser_factory.get_apply_serializer(s))
-            == (s, b''))
+            == s)
 
 
 def test_bool_serialization():
@@ -153,7 +153,7 @@ def test_bool_serialization():
     assert ScSD.deserialize(ScSD.serialize(s)) == (s, b'')
 
     assert (ser_factory.get_apply_deserializer(ser_factory.get_apply_serializer(s))
-            == (s, b''))
+            == s)
 
     s = False
     obj_type = 'bool'
@@ -165,7 +165,7 @@ def test_bool_serialization():
     assert ScSD.deserialize(ScSD.serialize(s)) == (s, b'')
 
     assert (ser_factory.get_apply_deserializer(ser_factory.get_apply_serializer(s))
-            == (s, b''))
+            == s)
 
 
 def test_ndarray_serialization_deserialization():
@@ -185,7 +185,7 @@ def test_ndarray_serialization_deserialization():
 
         assert np.allclose(
             ser_factory.get_apply_deserializer(
-                ser_factory.get_apply_serializer(ndarray))[0], ndarray)
+                ser_factory.get_apply_serializer(ndarray)), ndarray)
 
 
 @pytest.mark.parametrize('obj_list', (['hjk', 'jkgjg', 'lkhlkhl'],  # homogeneous string
@@ -207,7 +207,7 @@ def test_list_serialization_deserialization(obj_list):
             assert obj_list[ind] == list_back[ind]
 
     for ind, obj in enumerate(
-            ser_factory.get_apply_deserializer(ser_factory.get_apply_serializer(obj_list))[0]):
+            ser_factory.get_apply_deserializer(ser_factory.get_apply_serializer(obj_list))):
         if isinstance(obj, np.ndarray):
             assert np.allclose(obj_list[ind], obj)
         else:
@@ -224,7 +224,7 @@ def test_axis_serialization_deserialization():
     axis_deser = axis.deserialize(ser)[0]
     assert axis_deser == axis
 
-    axis_back = ser_factory.get_apply_deserializer(ser_factory.get_apply_serializer(axis))[0]
+    axis_back = ser_factory.get_apply_deserializer(ser_factory.get_apply_serializer(axis))
     assert axis_back == axis
 
 
@@ -237,7 +237,7 @@ def test_dwa_serialization_deserialization(get_data):
         dwa.extra2 = 12.4
         ser = ser_factory.get_apply_serializer(dwa)
         assert isinstance(ser, bytes)
-        dwa_back = ser_factory.get_apply_deserializer(ser)[0]
+        dwa_back = ser_factory.get_apply_deserializer(ser)
 
         assert dwa_back == dwa
         assert dwa_back.__class__.__name__ == dwa.__class__.__name__
@@ -247,7 +247,7 @@ def test_dwa_serialization_deserialization(get_data):
             assert getattr(dwa, attr) == getattr(dwa_back, attr)
 
     for dwa in dte:
-        assert ser_factory.get_apply_deserializer(ser_factory.get_apply_serializer(dwa))[0] == dwa
+        assert ser_factory.get_apply_deserializer(ser_factory.get_apply_serializer(dwa)) == dwa
 
 
 def test_dte_serialization(get_data):
@@ -255,14 +255,14 @@ def test_dte_serialization(get_data):
 
     ser = ser_factory.get_apply_serializer(dte)
     assert isinstance(ser, bytes)
-    dte_back = ser_factory.get_apply_deserializer(ser)[0]
+    dte_back = ser_factory.get_apply_deserializer(ser)
 
     assert dte_back.name == dte.name
     assert dte_back.timestamp == dte.timestamp
     for dwa in dte_back:
         assert dwa == dte.get_data_from_full_name(dwa.get_full_name())
 
-    dte_back_factory = ser_factory.get_apply_deserializer(ser_factory.get_apply_serializer(dte))[0]
+    dte_back_factory = ser_factory.get_apply_deserializer(ser_factory.get_apply_serializer(dte))
     assert dte_back_factory.name == dte.name
     assert dte_back_factory.timestamp == dte.timestamp
     for dwa in dte_back_factory:

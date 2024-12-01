@@ -12,12 +12,12 @@ from typing import Optional, Tuple, List, Union, TYPE_CHECKING, Any
 import numpy as np
 
 from . import utils
-from ..serialize.factory import SerializableFactory, SERIALIZABLE
+from ..serialize.factory import SerializableFactory, SERIALIZABLE, SerializableBase
 
 ser_factory = SerializableFactory()
 
 
-class StringSerializeDeserialize:
+class StringSerializeDeserialize(SerializableBase):
 
     @staticmethod
     def serialize(string: str) -> bytes:
@@ -54,7 +54,7 @@ class StringSerializeDeserialize:
         return str_obj, remaining_bytes
 
 
-class BytesSerializeDeserialize:
+class BytesSerializeDeserialize(SerializableBase):
     @staticmethod
     def serialize(some_bytes: bytes) -> bytes:
         bytes_string = b''
@@ -69,7 +69,7 @@ class BytesSerializeDeserialize:
         return bytes_str, remaining_bytes
 
 
-class ScalarSerializeDeserialize:
+class ScalarSerializeDeserialize(SerializableBase):
     @staticmethod
     def serialize(scalar: complex) -> bytes:
         """ Convert a scalar into a bytes message together with the info to convert it back
@@ -122,7 +122,7 @@ class ScalarSerializeDeserialize:
         return number, remaining_bytes
 
 
-class NdArraySerializeDeserialize:
+class NdArraySerializeDeserialize(SerializableBase):
 
     @staticmethod
     def serialize(array: np.ndarray) -> bytes:
@@ -192,7 +192,7 @@ class NdArraySerializeDeserialize:
         return ndarray, remaining_bytes
 
 
-class ListSerializeDeserialize:
+class ListSerializeDeserialize(SerializableBase):
     @staticmethod
     def serialize(list_object: List) -> bytes:
         """ Convert a list of objects into a bytes message together with the info to convert it back
@@ -239,7 +239,8 @@ class ListSerializeDeserialize:
         list_len, remaining_bytes = utils.get_int_from_bytes(bytes_str)
 
         for ind in range(list_len):
-            obj, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes)
+            obj, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes,
+                                                                      only_object=False)
             list_obj.append(obj)
         return list_obj, remaining_bytes
 

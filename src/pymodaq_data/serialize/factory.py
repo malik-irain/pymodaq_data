@@ -22,13 +22,42 @@ class SerializableBase(metaclass=ABCMeta):
     @staticmethod
     @abstractmethod
     def serialize(obj: "SerializableBase") -> bytes:
-        "implementation of the serialization into bytes"
+        """  Implements self serialization into bytes
+
+        Parameters
+        ----------
+        obj: SerializableBase
+
+        Returns
+        -------
+        bytes
+
+        Notes
+        -----
+        The actual serialization should be done using the SerializableFactory and its method
+        :meth:SerializableFactory.get_apply_serializer
+        """
         ...
 
     @staticmethod
     @abstractmethod
     def deserialize(bytes_str: bytes) -> Tuple["SerializableBase", bytes]:
-        "implementation of the deserialization from bytes"
+        """ Implements deserialization into self type from bytes
+
+        Parameters
+        ----------
+        bytes_str: bytes
+
+        Returns
+        -------
+        SerializableBase: object to reconstruct
+        bytes: leftover bytes to deserialize
+
+        Notes
+        -----
+        The actual deserialization should be done using the SerializableFactory and its method
+        :meth:SerializableFactory.get_apply_deserializer
+        """
         ...
 
 
@@ -112,7 +141,7 @@ class SerializableFactory:
                 return k
         raise ValueError("Unknown type")
 
-    def get_serialazables(self) -> List[type]:
+    def get_serializables(self) -> List[type]:
         return list(self.serializable_registry.keys())
 
     def get_serializer(self, obj_type: type) -> Serializer:
@@ -130,12 +159,22 @@ class SerializableFactory:
         obj: object
             should be a serializable object (see get_serializables)
         append_length: bool
-            if True will append the length of the bytes string in the beginning og the returned
+            if True will append the length of the bytes string in the beginning of the returned
             bytes
 
         Returns
         -------
         bytes: the encoded object
+
+        Notes
+        -----
+        Symmetric method of :meth:SerializableFactory.get_apply_deserializer
+
+        Examples
+        --------
+        >>> ser_factory = SerializableFactory()
+        >>> s = [23, 'a']
+        >>>> ser_factory.get_apply_deserializer(ser_factory.get_apply_serializer(s) == s
         """
         serializer = self.get_serializer(obj.__class__)
         bytes_str = serializer(obj)
@@ -153,8 +192,8 @@ class SerializableFactory:
             raise NotImplementedError(f'There is no known method to deserialize an {obj_type} type')
 
     def get_apply_deserializer(
-        self, bytes_str: bytes, only_object: bool = False
-    ) -> Tuple[SERIALIZABLE, bytes]:
+        self, bytes_str: bytes, only_object: bool = True
+    ) -> Union[SERIALIZABLE, Tuple[SERIALIZABLE, bytes]]:
         """ Infer which object is to be deserialized from the first bytes
 
         The type has been encoded by the get_apply_serializer method
@@ -167,12 +206,20 @@ class SerializableFactory:
             if False, return the object and the remaining bytes if any
             if True return only the object
 
+        Returns
+        -------
+        object: the reconstructed object
+        optional bytes: only if only_object parameter is False, will be the leftover bytes
 
+        Notes
+        -----
+        Symmetric method of :meth:SerializableFactory.get_apply_serializer
 
-        Return
-        ------
-        object
-        bytes:
+        Examples
+        --------
+        >>> ser_factory = SerializableFactory()
+        >>> s = [23, 'a']
+        >>>> ser_factory.get_apply_deserializer(ser_factory.get_apply_serializer(s) == s
         """
         obj_type_str, remaining_bytes = self.get_deserializer(str)(bytes_str)
 

@@ -288,11 +288,12 @@ class Axis(SerializableBase):
         Axis: the decoded Axis
         bytes: the remaining bytes string if any
         """
-        axis_label, remaining_bytes = ser_factory.get_apply_deserializer(bytes_str)
-        axis_units, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes)
-        axis_array, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes)
-        axis_index, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes)
-        axis_spread_order, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes)
+        axis_label, remaining_bytes = ser_factory.get_apply_deserializer(bytes_str, False)
+        axis_units, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes, False)
+        axis_array, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes, False)
+        axis_index, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes, False)
+        axis_spread_order, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes,
+                                                                                False)
 
         axis = Axis(axis_label, axis_units, data=axis_array, index=axis_index,
                     spread_order=axis_spread_order)
@@ -1980,21 +1981,22 @@ class DataWithAxes(DataBase, SerializableBase):
         DataWithAxes: the decoded DataWithAxes
         bytes: the remaining bytes string if any
         """
-        timestamp, remaining_bytes = ser_factory.get_apply_deserializer(bytes_str)
-        name, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes)
-        source, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes)
-        dim, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes)
-        distribution, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes)
-        data, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes)
-        units, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes)
-        labels, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes)
-        origin, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes)
-        nav_index_list, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes)
+        timestamp, remaining_bytes = ser_factory.get_apply_deserializer(bytes_str, False)
+        name, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes, False)
+        source, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes, False)
+        dim, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes, False)
+        distribution, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes, False)
+        data, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes, False)
+        units, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes, False)
+        labels, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes, False)
+        origin, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes, False)
+        nav_index_list, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes, False)
         nav_indexes = tuple(nav_index_list)
-        axes, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes)
+        axes, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes, False)
 
-        errors, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes)
-        extra_attributes, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes)
+        errors, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes, False)
+        extra_attributes, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes,
+                                                                               False)
 
         dwa = cls(name, source=source, dim=dim, distribution=distribution,
                   data=data, units=units, labels=labels, origin=origin, nav_indexes=nav_indexes,
@@ -2003,7 +2005,7 @@ class DataWithAxes(DataBase, SerializableBase):
             dwa.errors = errors
         dwa.extra_attributes = extra_attributes
         for attribute in dwa.extra_attributes:
-            attr_value, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes)
+            attr_value, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes, False)
             setattr(dwa, attribute, attr_value)
 
         dwa.timestamp = timestamp
@@ -2946,9 +2948,9 @@ class DataToExport(DataLowLevel, SerializableBase):
         DataToExport: the decoded DataToExport
         bytes: the remaining bytes if any
         """
-        timestamp, remaining_bytes = ser_factory.get_apply_deserializer(bytes_str)
-        name, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes)
-        data, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes)
+        timestamp, remaining_bytes = ser_factory.get_apply_deserializer(bytes_str, False)
+        name, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes, False)
+        data, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes, False)
 
         dte = cls(name, data=data)
         dte.timestamp = timestamp
