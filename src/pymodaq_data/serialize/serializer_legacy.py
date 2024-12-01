@@ -273,7 +273,7 @@ class DeSerializer:
         """
         bstring_len = self.get_message_length()
         bytes_str = self._bytes_string.check_received_length(bstring_len)
-        str_obj, _ = ser_factory.get_apply_deserializer(bytes_str)
+        str_obj = ser_factory.get_apply_deserializer(bytes_str)
         return str_obj
 
     def scalar_deserialization(self) -> complex:
@@ -288,7 +288,7 @@ class DeSerializer:
         """
         bstring_len = self.get_message_length()
         bytes_str = self._bytes_string.check_received_length(bstring_len)
-        scalar, _ = ser_factory.get_apply_deserializer(bytes_str)
+        scalar = ser_factory.get_apply_deserializer(bytes_str)
         return scalar
 
     def boolean_deserialization(self) -> bool:
@@ -314,7 +314,7 @@ class DeSerializer:
         """
         bstring_len = self.get_message_length()
         bytes_str = self._bytes_string.check_received_length(bstring_len)
-        array, _ = ser_factory.get_apply_deserializer(bytes_str)
+        array = ser_factory.get_apply_deserializer(bytes_str)
         return array
 
     def type_and_object_deserialization(self) -> SERIALIZABLE:
@@ -327,7 +327,7 @@ class DeSerializer:
         """
         bstring_len = self.get_message_length()
         bytes_str = self._bytes_string.check_received_length(bstring_len)
-        obj, _ = ser_factory.get_apply_deserializer(bytes_str)
+        obj = ser_factory.get_apply_deserializer(bytes_str)
         return obj
 
     def list_deserialization(self) -> list:
@@ -341,13 +341,13 @@ class DeSerializer:
         """
         bstring_len = self.get_message_length()
         bytes_str = self._bytes_string.check_received_length(bstring_len)
-        obj, _ = ser_factory.get_apply_deserializer(bytes_str)
+        obj = ser_factory.get_apply_deserializer(bytes_str)
         return obj
 
     def parameter_deserialization(self):
         bstring_len = self.get_message_length()
         bytes_str = self._bytes_string.check_received_length(bstring_len)
-        obj, _ = ser_factory.get_apply_deserializer(bytes_str)
+        obj = ser_factory.get_apply_deserializer(bytes_str)
         return obj
 
     def axis_deserialization(self) -> 'Axis':
@@ -362,7 +362,7 @@ class DeSerializer:
 
         bstring_len = self.get_message_length()
         bytes_str = self._bytes_string.check_received_length(bstring_len)
-        obj, _ = ser_factory.get_apply_deserializer(bytes_str)
+        obj = ser_factory.get_apply_deserializer(bytes_str)
         return obj
 
     def dwa_deserialization(self) -> 'DataWithAxes':
@@ -376,7 +376,7 @@ class DeSerializer:
         """
         bstring_len = self.get_message_length()
         bytes_str = self._bytes_string.check_received_length(bstring_len)
-        obj, _ = ser_factory.get_apply_deserializer(bytes_str)
+        obj = ser_factory.get_apply_deserializer(bytes_str)
         return obj
 
     def dte_deserialization(self) -> 'DataToExport':
@@ -390,5 +390,5 @@ class DeSerializer:
         """
         bstring_len = self.get_message_length()
         bytes_str = self._bytes_string.check_received_length(bstring_len)
-        obj, _ = ser_factory.get_apply_deserializer(bytes_str)
+        obj = ser_factory.get_apply_deserializer(bytes_str)
         return obj
