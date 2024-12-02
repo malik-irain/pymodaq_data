@@ -47,11 +47,12 @@ dependencies = [
 
 [project.urls]
 Homepage = "http://pymodaq.cnrs.fr"
-Source = "https://github.com/PyMoDAQ/PyMoDAQ"
-Tracker = "https://github.com/PyMoDAQ/PyMoDAQ/issues"
+Source = "https://github.com/PyMoDAQ/pymodaq_data"
+Tracker = "https://github.com/PyMoDAQ/pymodaq_data/issues"
 
 [tool.hatch.version]
 source = "vcs"
+fallback-version = "5.0.12"
 
 [tool.hatch.build.targets.sdist]
 include = [
