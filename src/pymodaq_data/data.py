@@ -36,7 +36,7 @@ from pymodaq_data.plotting.plotter.plotter import PlotterFactory
 from pymodaq_data.numpy_func import HANDLED_FUNCTIONS, HANDLED_UFUNCS, process_arguments_for_ufuncs
 from pymodaq_data import Q_, ureg, Unit
 from pymodaq_data.slicing import SpecialSlicersData
-from pymodaq_data.serialize.factory import SerializableFactory, SerializableBase
+from pymodaq_utils.serialize.factory import SerializableFactory, SerializableBase
 
 config = Config()
 plotter_factory = PlotterFactory()

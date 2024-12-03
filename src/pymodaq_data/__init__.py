@@ -43,13 +43,6 @@ try:
     logger.info(f"Done")
     logger.info('************************')
 
-    logger.info('')
-    logger.info('')
-    logger.info('************************')
-    logger.info(f"Registering Serializables...")
-    from pymodaq_data.serialize.serializer import SerializableFactory, SERIALIZABLE
-    logger.info(f"Done")
-    logger.info('************************')
 
     from pymodaq_data.data import (DataRaw, DataWithAxes, DataToExport, Axis,
                                    DataCalculated, DataDim, DataDistribution, DataSource, DataBase)
