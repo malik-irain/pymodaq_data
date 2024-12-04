@@ -2907,7 +2907,14 @@ class DataToExport(DataLowLevel, SerializableBase):
         self._iter_index = 0
 
         self.data = data
+
+        self.extra_attributes = []
+        self.add_extra_attribute(**kwargs)
+
+    def add_extra_attribute(self, **kwargs):
         for key in kwargs:
+            if key not in self.extra_attributes:
+                self.extra_attributes.append(key)
             setattr(self, key, kwargs[key])
 
     @staticmethod
@@ -2935,6 +2942,10 @@ class DataToExport(DataLowLevel, SerializableBase):
         bytes_string += ser_factory.get_apply_serializer(dte.timestamp)
         bytes_string += ser_factory.get_apply_serializer(dte.name)
         bytes_string += ser_factory.get_apply_serializer(dte.data)
+        bytes_string += ser_factory.get_apply_serializer(dte.extra_attributes)
+        for attribute in dte.extra_attributes:
+            bytes_string += ser_factory.get_apply_serializer(
+                getattr(dte, attribute))
         return bytes_string
 
     @classmethod
@@ -2952,8 +2963,16 @@ class DataToExport(DataLowLevel, SerializableBase):
         name, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes, False)
         data, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes, False)
 
+        extra_attributes, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes,
+                                                                               False)
         dte = cls(name, data=data)
         dte.timestamp = timestamp
+
+        dte.extra_attributes = extra_attributes
+        for attribute in dte.extra_attributes:
+            attr_value, remaining_bytes = ser_factory.get_apply_deserializer(remaining_bytes, False)
+            setattr(dte, attribute, attr_value)
+
         return dte, remaining_bytes
 
     def plot(self, plotter_backend: str = config('plotting', 'backend'), *args, **kwargs):
@@ -2975,6 +2994,22 @@ class DataToExport(DataLowLevel, SerializableBase):
         else:
             raise TypeError(f'Could not substract a {other.__class__.__name__} or a {self.__class__.__name__} '
                             f'of a different length')
+
+    def __eq__(self, other):
+        if not isinstance(other, DataToExport):
+            return False
+
+        for dwa, other_dwa in zip(self, other):
+            if dwa != other_dwa:
+                return False
+
+        for extra_arg in self.extra_attributes:
+            if extra_arg not in other.extra_attributes:
+                return False
+            elif getattr(self, extra_arg) != getattr(other, extra_arg):
+                return False
+        return True
+
 
     def __add__(self, other: object):
         if isinstance(other, DataToExport) and len(other) == len(self):
