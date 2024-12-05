@@ -1,0 +1,20 @@
+<svg width="140" height="20" viewBox="0 0 1400 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="3.11 Windows: passing">
+  <title>3.11 Windows: passing</title>
+  <linearGradient id="a" x2="0" y2="100%">
+    <stop offset="0" stop-opacity=".1" stop-color="#EEE"/>
+    <stop offset="1" stop-opacity=".1"/>
+  </linearGradient>
+  <mask id="m"><rect width="1400" height="200" rx="30" fill="#FFF"/></mask>
+  <g mask="url(#m)">
+    <rect width="882" height="200" fill="#555"/>
+    <rect width="518" height="200" fill="#3C1" x="882"/>
+    <rect width="1400" height="200" fill="url(#a)"/>
+  </g>
+  <g aria-hidden="true" fill="#fff" text-anchor="start" font-family="Verdana,DejaVu Sans,sans-serif" font-size="110">
+    <text x="60" y="148" textLength="782" fill="#000" opacity="0.25">3.11 Windows</text>
+    <text x="50" y="138" textLength="782">3.11 Windows</text>
+    <text x="937" y="148" textLength="418" fill="#000" opacity="0.25">passing</text>
+    <text x="927" y="138" textLength="418">passing</text>
+  </g>
+  
+</svg>
