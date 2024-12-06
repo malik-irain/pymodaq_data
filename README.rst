@@ -9,7 +9,7 @@ PyMoDAQ Data
    :target: https://pymodaq.readthedocs.io/en/stable/?badge=latest
    :alt: Documentation Status
 
-.. image:: https://codecov.io/gh/PyMoDAQ/pymodaq_data/graph/badge.svg?token=H32JflMEYR 
+.. image:: https://codecov.io/gh/PyMoDAQ/pymodaq_data/branch/5.0.x_dev/graph/badge.svg?token=H32JflMEYR 
  :target: https://codecov.io/gh/PyMoDAQ/pymodaq_data
 
 +-------------+-------------+---------------+
