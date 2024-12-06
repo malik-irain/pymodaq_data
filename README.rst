@@ -27,28 +27,28 @@ PyMoDAQ Data
 
 
 
-.. |39-linux| image:: https://raw.githubusercontent.com/PyMoDAQ/pymodaq_data/badges/0.0.x_dev/tests_Linux_3.9.svg
+.. |39-linux| image:: https://raw.githubusercontent.com/PyMoDAQ/pymodaq_data/badges/5.0.x_dev/tests_Linux_3.9.svg
     :target: https://github.com/PyMoDAQ/pymodaq_data/actions/workflows/tests.yml
 
-.. |310-linux| image:: https://raw.githubusercontent.com/PyMoDAQ/pymodaq_data/badges/0.0.x_dev/tests_Linux_3.10.svg
+.. |310-linux| image:: https://raw.githubusercontent.com/PyMoDAQ/pymodaq_data/badges/5.0.x_dev/tests_Linux_3.10.svg
     :target: https://github.com/PyMoDAQ/pymodaq_data/actions/workflows/tests.yml
 
-.. |311-linux| image:: https://raw.githubusercontent.com/PyMoDAQ/pymodaq_data/badges/0.0.x_dev/tests_Linux_3.11.svg
+.. |311-linux| image:: https://raw.githubusercontent.com/PyMoDAQ/pymodaq_data/badges/5.0.x_dev/tests_Linux_3.11.svg
     :target: https://github.com/PyMoDAQ/pymodaq_data/actions/workflows/tests.yml
 
-.. |312-linux| image:: https://raw.githubusercontent.com/PyMoDAQ/pymodaq_data/badges/0.0.x_dev/tests_Linux_3.12.svg
+.. |312-linux| image:: https://raw.githubusercontent.com/PyMoDAQ/pymodaq_data/badges/5.0.x_dev/tests_Linux_3.12.svg
     :target: https://github.com/PyMoDAQ/pymodaq_data/actions/workflows/tests.yml
 
-.. |39-windows| image:: https://raw.githubusercontent.com/PyMoDAQ/pymodaq_data/badges/0.0.x_dev/tests_Windows_3.9.svg
+.. |39-windows| image:: https://raw.githubusercontent.com/PyMoDAQ/pymodaq_data/badges/5.0.x_dev/tests_Windows_3.9.svg
     :target: https://github.com/PyMoDAQ/pymodaq_data/actions/workflows/tests.yml
 
-.. |310-windows| image:: https://raw.githubusercontent.com/PyMoDAQ/pymodaq_data/badges/0.0.x_dev/tests_Windows_3.10.svg
+.. |310-windows| image:: https://raw.githubusercontent.com/PyMoDAQ/pymodaq_data/badges/5.0.x_dev/tests_Windows_3.10.svg
     :target: https://github.com/PyMoDAQ/pymodaq_data/actions/workflows/tests.yml
 
-.. |311-windows| image:: https://raw.githubusercontent.com/PyMoDAQ/pymodaq_data/badges/0.0.x_dev/tests_Windows_3.11.svg
+.. |311-windows| image:: https://raw.githubusercontent.com/PyMoDAQ/pymodaq_data/badges/5.0.x_dev/tests_Windows_3.11.svg
     :target: https://github.com/PyMoDAQ/pymodaq_data/actions/workflows/tests.yml
 
-.. |312-windows| image:: https://raw.githubusercontent.com/PyMoDAQ/pymodaq_data/badges/0.0.x_dev/tests_Windows_3.12.svg
+.. |312-windows| image:: https://raw.githubusercontent.com/PyMoDAQ/pymodaq_data/badges/5.0.x_dev/tests_Windows_3.12.svg
     :target: https://github.com/PyMoDAQ/pymodaq_data/actions/workflows/tests.yml
 
 
