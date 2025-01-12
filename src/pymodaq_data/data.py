@@ -396,7 +396,7 @@ class Axis(SerializableBase):
     @data.setter
     def data(self, data: Union[np.ndarray, Q_]):
         if data is not None:
-            self._check_data_valid(data)
+            data = self._check_data_valid(data)
             self.get_scale_offset_from_data(data)
             self._size = data.size
         elif self.size is None:
@@ -484,7 +484,7 @@ class Axis(SerializableBase):
         elif index < 0:
             raise ValueError('index for the Axis class should be a positive integer')
 
-    def _check_data_valid(self, data: Union[np.ndarray, Q_]):
+    def _check_data_valid(self, data: Union[np.ndarray, Q_]) -> np.ndarray:
         if isinstance(data, Q_):
             self.units = str(data.units)
             data = data.magnitude
@@ -492,6 +492,7 @@ class Axis(SerializableBase):
             raise TypeError(f'data for the Axis class should be a 1D numpy array')
         elif len(data.shape) != 1:
             raise ValueError(f'data for the Axis class should be a 1D numpy array')
+        return data
 
     def _linear_data(self, nsteps: int):
         """create axis data with a linear version using scaling and offset"""
