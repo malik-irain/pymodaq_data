@@ -18,24 +18,14 @@ from pymodaq_utils.logger import set_logger, get_module_name
 logger = set_logger(get_module_name(__file__))
 
 
+
+
 class H5Exporter(metaclass=ABCMeta):
     """Base class for an exporter. """
 
-    # This is to define an abstract class attribute
-    @classmethod
-    @property
-    @abstractmethod
-    def FORMAT_DESCRIPTION(cls):
-        """str: file format description as a short text. eg: text file"""
-        raise NotImplementedError
-
-    @classmethod
-    @property
-    @abstractmethod
-    def FORMAT_EXTENSION(cls):
-        """str: File format extension. eg: txt"""
-        raise NotImplementedError
-
+    FORMAT_EXTENSION: str = NotImplemented
+    FORMAT_DESCRIPTION: str = NotImplemented
+    
     def __init__(self):
         """Abstract Exporter Constructor"""
         pass
@@ -63,6 +53,11 @@ class ExporterFactory:
         """
 
         def inner_wrapper(wrapped_class) -> Callable:
+            if wrapped_class.FORMAT_EXTENSION   is NotImplemented or \
+               wrapped_class.FORMAT_DESCRIPTION is NotImplemented:
+                raise NotImplementedError(f'{wrapped_class} does not properly provide a valid value for '
+                                          f'`FORMAT_EXTENSION` ({wrapped_class.FORMAT_EXTENSION}) or for '
+                                          f'`FORMAT_DESCRIPTION` ({wrapped_class.FORMAT_DESCRIPTION})')
             extension = wrapped_class.FORMAT_EXTENSION
             format_desc = wrapped_class.FORMAT_DESCRIPTION
 
