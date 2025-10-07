@@ -703,6 +703,87 @@ class TestDataWithAxesUniform:
         with pytest.raises(ValueError):
             dwa.interp(new_axis_array)
 
+    def test_pad_1D(self):
+        omega0 = 5
+        Npts_in = 2**10
+        time_axis = data_mod.Axis('time', 's', data=np.linspace(0, 10*2*np.pi, Npts_in))
+        dwa = data_mod.DataRaw('sinus',
+                               data=[
+                                   np.sin(omega0 * time_axis.get_data()),
+                                   np.cos(omega0 * time_axis.get_data()),
+                               ], labels=['sinus', 'cosinus'],
+                               axes=[time_axis])
+        pad_width = 123
+        dwa_padded = dwa.pad(pad_width)
+
+        assert dwa_padded.size == dwa.size + 2 * pad_width
+        assert dwa_padded.axes[0].size == dwa.axes[0].size + 2 * pad_width
+
+        pad_width = (123,)
+        dwa_padded = dwa.pad(pad_width)
+
+        assert dwa_padded.size == dwa.size + 2 * pad_width[0]
+        assert dwa_padded.axes[0].size == dwa.axes[0].size + 2 * pad_width[0]
+
+        pad_width = (123, 256)
+        dwa_padded = dwa.pad(pad_width)
+
+        assert dwa_padded.size == dwa.size + np.sum(pad_width)
+        assert dwa_padded.axes[0].size == dwa.axes[0].size + np.sum(pad_width)
+
+        pad_width = ((123, 256),)
+        dwa_padded = dwa.pad(pad_width)
+
+        assert dwa_padded.size == dwa.size + np.sum(pad_width[0])
+        assert dwa_padded.axes[0].size == dwa.axes[0].size + np.sum(pad_width[0])
+
+        pad_width = ((123, 256), (12, 25),)
+        with pytest.raises(TypeError):
+            dwa_padded = dwa.pad(pad_width)
+
+    def test_pad_2D(self):
+        x_axis = data_mod.Axis('x', 's', data=np.linspace(0, 10*2*np.pi, 2**6), index=1)
+        y_axis = data_mod.Axis('y', 's', data=np.linspace(0, 10*2*np.pi, 2**8), index=0)
+        dwa = data_mod.DataRaw('gauss2D',
+                               data=[
+                                   mutils.gauss2D(x_axis.get_data(), 10, 10, y_axis.get_data(), 20, 6),
+                               ], labels=['gauss2D'],
+                               axes=[x_axis, y_axis])
+        pad_width = 123
+        dwa_padded = dwa.pad(pad_width)
+
+        for ind in range(len(dwa.shape)):
+            assert dwa_padded.shape[ind] == dwa.shape[ind] + 2 * pad_width
+            assert dwa_padded.get_axis_from_index(ind)[0].size == dwa.get_axis_from_index(ind)[0].size + 2 * pad_width
+
+        pad_width = (123,)
+        dwa_padded = dwa.pad(pad_width)
+
+        pad_width = pad_width[0]
+        for ind in range(len(dwa.shape)):
+            assert dwa_padded.shape[ind] == dwa.shape[ind] + 2 * pad_width
+            assert dwa_padded.get_axis_from_index(ind)[0].size == dwa.get_axis_from_index(ind)[0].size + 2 * pad_width
+
+        pad_width = (123, 256)
+        dwa_padded = dwa.pad(pad_width)
+        for ind in range(len(dwa.shape)):
+            assert dwa_padded.shape[ind] == dwa.shape[ind] + np.sum(pad_width)
+            assert dwa_padded.get_axis_from_index(ind)[0].size == dwa.get_axis_from_index(ind)[0].size + np.sum(pad_width)
+
+        pad_width = ((123, 256),)
+        dwa_padded = dwa.pad(pad_width)
+        pad_width = pad_width[0]
+        for ind in range(len(dwa.shape)):
+            assert dwa_padded.shape[ind] == dwa.shape[ind] + np.sum(pad_width)
+            assert dwa_padded.get_axis_from_index(ind)[0].size == dwa.get_axis_from_index(ind)[0].size + np.sum(pad_width)
+
+        pad_width = ((123, 256), (12, 25),)
+        dwa_padded = dwa.pad(pad_width)
+        for ind in range(len(dwa.shape)):
+            assert dwa_padded.shape[ind] == dwa.shape[ind] + np.sum(pad_width[ind])
+            assert dwa_padded.get_axis_from_index(ind)[0].size == dwa.get_axis_from_index(ind)[0].size + np.sum(pad_width[ind])
+
+
     def test_ft_ift(self):
         omega0 = 5
         time_axis = data_mod.Axis('time', 's', data=np.linspace(0, 10*2*np.pi, 2**10))

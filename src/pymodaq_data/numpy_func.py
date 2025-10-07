@@ -1,15 +1,20 @@
 from typing import Union, List, TYPE_CHECKING, Iterable, Optional, Callable
 import numbers
+from copy import deepcopy
 
 import numpy as np
 from pint.facets.numpy.numpy_func import HANDLED_UFUNCS  # imported by the data module
 from pymodaq_data import Q_
 from pymodaq_data import data as data_mod
 
+from pymodaq_utils.logger import set_logger, get_module_name
+
 if TYPE_CHECKING:
     from pymodaq_data.data import DataBase, DataWithAxes
 
 HANDLED_FUNCTIONS = {}
+
+logger = set_logger(get_module_name(__file__))
 
 
 def process_arguments_for_ufuncs(input: 'DataBase',
@@ -160,6 +165,38 @@ def _roll(dwa: 'DataWithAxes', *args, **kwargs):
     dwa_func = dwa.deepcopy_with_new_data(data=[np.roll(array, *args, **kwargs) for array in dwa])
     dwa_func.name += f"_{'roll'}"
     return dwa_func
+
+
+@implements('pad')
+def _pad(dwa: 'DataWithAxes', pad_width, mode = 'constant', **kwargs):
+    dwa.create_missing_axes()
+    for axis in dwa.axes:
+        if not axis.is_axis_linear():
+            raise TypeError('Could not pad data with non linear axes')
+    if isinstance(pad_width, int):
+            pad_width = [(pad_width, pad_width) for _ in range(len(dwa.shape))]
+    elif len(pad_width) == 1:
+        if hasattr(pad_width[0], '__len__') and len(pad_width[0]) == 2:
+            pad_width = [pad_width[0] for _ in range(len(dwa.shape))]
+        else:
+            pad_width = pad_width[0]
+            pad_width = [(pad_width, pad_width) for _ in range(len(dwa.shape))]
+    elif len(pad_width) == 2 and not hasattr(pad_width[0], '__len__'):
+        pad_width = [pad_width for _ in range(len(dwa.shape))]
+    elif len(pad_width) == len(dwa.shape):
+        if not hasattr(pad_width[0], '__len__'):
+            raise TypeError('Could not pad data with the given argument')
+    else:
+        raise TypeError(f'Could not pad data with the given arguments: {pad_width}')
+    dwa_func = dwa.deepcopy_with_new_data(data=[np.pad(array, pad_width, mode, **kwargs) for array in dwa])
+    dwa_func.axes = []
+    for axis in deepcopy(dwa.axes):
+        axis.offset -= pad_width[axis.index][0] * axis.scaling
+        axis.size += pad_width[axis.index][0] + pad_width[axis.index][1]
+        dwa_func.axes.append(axis)
+    dwa_func.name += f"_{'pad'}"
+    return dwa_func
+
 
 # ******** functions that return booleans ***********
 @implements('all')

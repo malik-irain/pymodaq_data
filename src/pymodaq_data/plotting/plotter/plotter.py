@@ -83,13 +83,14 @@ class PlotterFactory(ObjectFactory):
     def create(cls, key, **kwargs) -> PlotterBase:
         builder = cls._builders[cls.__name__].get(key)
         if not builder:
-            raise ValueError(key)
+            raise ValueError(f'{key} is not a valid plotter: {cls.backends()}')
         return builder(**kwargs)
 
     def get(self, backend: str, **kwargs):
         return self.create(backend, **kwargs)
 
-    def backends(self) -> List[str]:
+    @classmethod
+    def backends(cls) -> List[str]:
         """Returns the list of plotter backends, main identifier of a given plotter"""
-        return sorted(list(self.builders[self.__class__.__name__].keys()))
+        return sorted(list(cls._builders[cls.__name__].keys()))
 
