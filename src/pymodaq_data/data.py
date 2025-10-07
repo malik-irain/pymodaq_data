@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from abc import ABCMeta, abstractmethod, abstractproperty
 import numbers
+from copy import deepcopy
+
 import numpy as np
 from numpy.lib.mixins import NDArrayOperatorsMixin
 from typing import List, Tuple, Union, Any, Callable
@@ -1080,6 +1082,7 @@ class DataBase(DataLowLevel, NDArrayOperatorsMixin):
         new_data = copy.copy(self)
         new_data.data = [np.fliplr(dat) for dat in new_data]
         return new_data
+
 
     def append(self, data: DataWithAxes):
         """Append data content if the underlying arrays have the same shape and compatible units"""
@@ -2272,6 +2275,16 @@ class DataWithAxes(DataBase, SerializableBase):
                                   labels=self.labels)
         return new_data
 
+    def pad(self, pad_width: Union[int, Tuple[int, int], Iterable[Tuple[int, int]]], **kwargs):
+        """ Pad the data arrays using the numpy pad function
+
+        The accepted pad_witdh type is the same than the numpy pad function
+
+
+        see numpy.pad method for the signature and possible named arguments
+        """
+        return np.pad(self, pad_width, **kwargs)
+
     def ft(self, axis: int = 0, axis_label: str = None,
            axis_units: str = None, labels: List[str] = None) -> DataWithAxes:
         """Process the Fourier Transform of the data on the specified axis and returns the new data
@@ -2556,6 +2569,25 @@ class DataWithAxes(DataBase, SerializableBase):
                     if ax.size > 1:
                         axes.append(ax)
         self.axes = axes
+
+    def rot90(self, k=1, axes=(0, 1)):
+        """ Rotate an array by 90 degrees in the plane specified by axes.
+
+        Valid only for 2D data
+        """
+        if self.dim == DataDim.Data2D:
+            new_data: DataWithAxes = copy.copy(self)
+            new_data.data = [np.rot90(dat, k, axes) for dat in new_data]
+            new_axes = []
+            axis = new_data.get_axis_from_index(0)[0]
+            axis.index = 1
+            new_axes.append(axis)
+            axis = new_data.get_axis_from_index(1)[0]
+            axis.index = 0
+            new_data.axes = new_axes
+            return new_data
+        else:
+            return self
 
     def _compute_slices(self, slices, is_navigation=True, is_index=True):
         """Compute the total slice to apply to the data
